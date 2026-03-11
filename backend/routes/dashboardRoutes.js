@@ -84,6 +84,25 @@ router.get('/summary', (req, res) => {
         `;
         const expenseDetails = db.prepare(expenseCategoryQuery).all(String(targetYear));
 
+        // 1-5. 지출 분류 통계 (당월 기준)
+        const targetYearMonth = `${salaryYear}-${String(salaryMonth).padStart(2, '0')}`;
+        const monthlyExpenseCategoryQuery = `
+            SELECT 
+                usage_category as name,
+                SUM(t.expense) as value
+            FROM transactions t
+            LEFT JOIN accounts a ON t.account_id = a.id
+            WHERE (a.include_in_stats = 1 OR t.account_id IS NULL)
+              AND t.period = '실행'
+              AND t.expense > 0
+              AND t.usage_category IS NOT NULL
+              AND t.usage_category != ''
+              AND CASE WHEN strftime('%d', t.date) < '20' THEN strftime('%Y-%m', date(t.date, '-1 month')) ELSE strftime('%Y-%m', t.date) END = ?
+            GROUP BY usage_category
+            ORDER BY value DESC
+        `;
+        const monthlyExpenseDetails = db.prepare(monthlyExpenseCategoryQuery).all(targetYearMonth);
+
         res.json({
             netWorth: (cashResult.total_cash || 0) + (investResult.total_invest || 0),
             totalCash: cashResult.total_cash || 0,
@@ -94,6 +113,7 @@ router.get('/summary', (req, res) => {
             monthlyStats,
             investmentDetails,
             expenseDetails,
+            monthlyExpenseDetails,
             currentSalaryYear: salaryYear,
             currentSalaryMonth: salaryMonth
         });

@@ -14,10 +14,12 @@ export default function Dashboard() {
         monthlyStats: [],
         investmentDetails: [],
         expenseDetails: [],
+        monthlyExpenseDetails: [],
         currentSalaryYear: currentRealYear,
         currentSalaryMonth: 1
     });
     const [marketData, setMarketData] = useState([]);
+    const [expenseChartPeriod, setExpenseChartPeriod] = useState('yearly');
 
     useEffect(() => {
         fetch(`/api/dashboard/summary?year=${selectedYear}`)
@@ -39,7 +41,10 @@ export default function Dashboard() {
         ...(summary.investmentDetails || [])
     ].filter(item => item.value > 0);
 
-    const expenseData = (summary.expenseDetails || []).filter(item => item.value > 0);
+    const rawExpenseData = expenseChartPeriod === 'yearly' 
+        ? (summary.expenseDetails || []) 
+        : (summary.monthlyExpenseDetails || []);
+    const expenseData = rawExpenseData.filter(item => item.value > 0);
 
     const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4'];
     const EXPENSE_COLORS = ['#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#06b6d4', '#3b82f6'];
@@ -225,7 +230,30 @@ export default function Dashboard() {
                 </div>
 
                 <div className="glass-panel">
-                    <h3 style={{ marginBottom: '16px' }}>{selectedYear}년 지출 분류별 비중</h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                        <h3 style={{ margin: 0 }}>
+                            {expenseChartPeriod === 'yearly' ? `${selectedYear}년 ` : '당월 '} 
+                            지출 분류별 비중
+                        </h3>
+                        <div style={{ display: 'flex', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', padding: '4px' }}>
+                            <button
+                                onClick={() => setExpenseChartPeriod('yearly')}
+                                style={{
+                                    background: expenseChartPeriod === 'yearly' ? 'rgba(255,255,255,0.1)' : 'transparent',
+                                    color: expenseChartPeriod === 'yearly' ? '#fff' : 'var(--text-muted)',
+                                    border: 'none', padding: '4px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: expenseChartPeriod === 'yearly' ? 600 : 400
+                                }}
+                            >년 누적</button>
+                            <button
+                                onClick={() => setExpenseChartPeriod('monthly')}
+                                style={{
+                                    background: expenseChartPeriod === 'monthly' ? 'rgba(255,255,255,0.1)' : 'transparent',
+                                    color: expenseChartPeriod === 'monthly' ? '#fff' : 'var(--text-muted)',
+                                    border: 'none', padding: '4px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: expenseChartPeriod === 'monthly' ? 600 : 400
+                                }}
+                            >당월</button>
+                        </div>
+                    </div>
                     {expenseData.length === 0 ? (
                         <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
                             지출 내역 데이터가 없습니다.

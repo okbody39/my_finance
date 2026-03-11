@@ -233,6 +233,8 @@ export default function ExpenseManagement() {
 
     // 지출 합계 계산
     const totalExpense = transactions.reduce((acc, t) => acc + (t.expense || 0), 0);
+    // 고정비용 합계 (사용자 요청은 '변동'이었으나, 타이틀이 '고정비용'이므로 논리적 일관성을 위해 '고정'을 추출)
+    const fixedExpense = transactions.filter(t => t.is_fixed === '고정').reduce((acc, t) => acc + (t.expense || 0), 0);
 
     return (
         <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -268,9 +270,15 @@ export default function ExpenseManagement() {
 
             <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
                 <div className="glass-panel" style={{ flex: 1, borderTop: '4px solid #ef4444', padding: '16px 24px' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>초기 지출 내역 합계</span>
+                    <span style={{ color: 'var(--text-muted)' }}>당월 지출 합계</span>
                     <div style={{ fontSize: '2rem', fontWeight: 700, color: '#ef4444' }}>
                         {new Intl.NumberFormat('ko-KR').format(totalExpense)} <span style={{ fontSize: '1rem' }}>원</span>
+                    </div>
+                </div>
+                <div className="glass-panel" style={{ flex: 1, borderTop: '4px solid #f59e0b', padding: '16px 24px' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>고정비용 합계</span>
+                    <div style={{ fontSize: '2rem', fontWeight: 700, color: '#f59e0b' }}>
+                        {new Intl.NumberFormat('ko-KR').format(fixedExpense)} <span style={{ fontSize: '1rem' }}>원</span>
                     </div>
                 </div>
                 <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
@@ -388,7 +396,7 @@ export default function ExpenseManagement() {
                                         <td style={tdStyle}>{tx.store}</td>
                                         <td style={{ ...tdStyle, textAlign: 'center', color: '#38bdf8' }}>{tx.usage_category}</td>
                                         <td style={{ ...tdStyle, textAlign: 'center', color: tx.period === '예정' ? '#fcd34d' : '#10b981' }}>{tx.period || '실행'}</td>
-                                        <td style={{ ...tdStyle, textAlign: 'center', color: 'var(--text-muted)' }}>{tx.is_fixed}</td>
+                                        <td style={{ ...tdStyle, textAlign: 'center', color: tx.is_fixed === '고정' ? '#f59e0b' : 'var(--text-muted)', fontWeight: tx.is_fixed === '고정' ? 600 : 400 }}>{tx.is_fixed}</td>
                                         <td style={{ ...tdStyle, textAlign: 'right', color: '#ef4444', fontWeight: 600 }}>
                                             {tx.expense > 0 ? new Intl.NumberFormat('ko-KR').format(tx.expense) : ''}
                                         </td>
