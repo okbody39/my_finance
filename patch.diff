@@ -1,0 +1,51 @@
+--- frontend/src/pages/InvestmentManagement.jsx
++++ frontend/src/pages/InvestmentManagement.jsx
+@@ -163,16 +163,40 @@
+                         ) : (
+                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginTop: '16px' }}>
+                                 {investments.map(inv => {
+                                     const progress = inv.target_value ? Math.min(100, (inv.current_value / inv.target_value) * 100) : 0;
++                                    const isEditing = editingInvId === inv.id;
++                                    const isHovered = hoveredInvId === inv.id;
++
++                                    if (isEditing) {
++                                        return (
++                                            <div key={inv.id} style={{ background: 'rgba(255,255,255,0.05)', padding: '16px', borderRadius: '12px', border: '1px solid #38bdf8', display: 'flex', flexDirection: 'column', gap: '8px' }}>
++                                                <input type="text" style={inputStyle} value={editForm.name} onChange={e => handleEditChange('name', e.target.value)} placeholder="자산명" />
++                                                <select style={inputStyle} value={editForm.type} onChange={e => handleEditChange('type', e.target.value)}>
++                                                    <option>주식</option>
++                                                    <option>부동산</option>
++                                                    <option>연금 / ISA / IRP</option>
++                                                    <option>코인</option>
++                                                    <option>기타</option>
++                                                </select>
++                                                <input type="text" style={inputStyle} value={editForm.current_value} onChange={e => handleEditChange('current_value', e.target.value)} placeholder="현재 가치" />
++                                                <input type="text" style={inputStyle} value={editForm.target_value} onChange={e => handleEditChange('target_value', e.target.value)} placeholder="목표 가치" />
++                                                
++                                                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
++                                                    <button onClick={() => handleEditSave(inv.id)} style={{ flex: 1, padding: '6px', background: '#38bdf8', color: '#0f1115', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>저장</button>
++                                                    <button onClick={() => setEditingInvId(null)} style={{ flex: 1, padding: '6px', background: 'rgba(255,255,255,0.1)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>취소</button>
++                                                </div>
++                                            </div>
++                                        );
++                                    }
+ 
+                                     return (
+-                                        <div key={inv.id} style={{ background: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
++                                        <div 
++                                            key={inv.id} 
++                                            onMouseEnter={() => setHoveredInvId(inv.id)}
++                                            onMouseLeave={() => setHoveredInvId(null)}
++                                            style={{ background: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: '8px', position: 'relative' }}
++                                        >
+                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                 <span style={{ color: '#a78bfa', fontSize: '0.85rem', fontWeight: 600 }}>{inv.type}</span>
++                                                {isHovered && (
++                                                    <div style={{ display: 'flex', gap: '8px' }}>
++                                                        <span onClick={() => handleEditStart(inv)} style={{ fontSize: '0.75rem', color: '#38bdf8', cursor: 'pointer' }}>수정</span>
++                                                        <span onClick={() => handleDelete(inv.id)} style={{ fontSize: '0.75rem', color: '#ef4444', cursor: 'pointer' }}>삭제</span>
++                                                    </div>
++                                                )}
+                                             </div>
+                                             <strong style={{ fontSize: '1.1rem' }}>{inv.name}</strong>
+                                             
