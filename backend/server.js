@@ -39,7 +39,12 @@ app.use('/api', (req, res) => {
 // The "catchall" handler: for any request that doesn't
 // match one above, send back React's index.html file.
 // (Express 최신 버전 호환을 위해 '*' 대신 정규식 /(.*)/ 사용)
-app.get(/(.*)/, (req, res) => {
+// app.get(/(.*)/, (req, res) => {
+//     res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+// });
+
+app.use((req, res) => {
+    // res.sendFile(path.join(clientBuildPath, 'index.html'));
     res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
 
