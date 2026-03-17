@@ -189,4 +189,110 @@ router.get('/market', async (req, res) => {
     }
 });
 
+// 2-1. 특정 종목 주가 동적 조회 (KOSPI 등)
+let customStockCache = {};
+router.get('/stock/:symbol', async (req, res) => {
+    try {
+        let symbol = req.params.symbol;
+        if (!symbol.includes('.')) {
+            symbol = `${symbol}.KS`; 
+        }
+
+        const now = Date.now();
+        if (customStockCache[symbol] && now - customStockCache[symbol].lastFetched < 300000) {
+            return res.json(customStockCache[symbol].data);
+        }
+
+        const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        
+        const result = data.chart.result[0];
+        const currentPrice = result.meta.regularMarketPrice;
+
+        const responseData = { symbol, price: currentPrice };
+        customStockCache[symbol] = { data: responseData, lastFetched: now };
+        
+        res.json(responseData);
+    } catch (error) {
+        console.error(`[Stock Data] Error fetching ${req.params.symbol}:`, error.message);
+        res.status(500).json({ error: 'Failed to fetch stock data' });
+    }
+});
+
+// 3. 커스텀 카드 목록 조회
+router.get('/custom-cards', (req, res) => {
+    try {
+        const sortedCards = db.prepare('SELECT * FROM custom_cards ORDER BY layout_order ASC').all();
+        res.json(sortedCards);
+    } catch (error) {
+        console.error('Error fetching custom cards:', error);
+        res.status(500).json({ error: 'Failed to fetch custom cards' });
+    }
+});
+
+// 4. 커스텀 카드 생성
+router.post('/custom-cards', (req, res) => {
+    const { title, formula } = req.body;
+    
+    if (!title || !formula) {
+        return res.status(400).json({ error: 'Title and formula are required' });
+    }
+    
+    try {
+        const maxOrderResult = db.prepare('SELECT MAX(layout_order) as maxOrder FROM custom_cards').get();
+        const nextOrder = (maxOrderResult.maxOrder || 0) + 1;
+        
+        const stmt = db.prepare('INSERT INTO custom_cards (title, formula, layout_order) VALUES (?, ?, ?)');
+        const result = stmt.run(title, formula, nextOrder);
+        
+        res.status(201).json({ 
+            id: result.lastInsertRowid,
+            title,
+            formula,
+            layout_order: nextOrder
+        });
+    } catch (error) {
+        console.error('Error creating custom card:', error);
+        res.status(500).json({ error: 'Failed to create custom card' });
+    }
+});
+
+// 5. 커스텀 카드 위치 및 정보 수정 (Bulk & 개별)
+router.put('/custom-cards', (req, res) => {
+    const { cards } = req.body; // 배열 형태로 id, title, formula, layout_order 전달
+    
+    if (!Array.isArray(cards)) {
+        return res.status(400).json({ error: 'Payload must contain a "cards" array' });
+    }
+    
+    try {
+        const updateStmt = db.prepare('UPDATE custom_cards SET title = COALESCE(?, title), formula = COALESCE(?, formula), layout_order = COALESCE(?, layout_order) WHERE id = ?');
+        
+        const updateAll = db.transaction((cardList) => {
+            for (const card of cardList) {
+                updateStmt.run(card.title, card.formula, card.layout_order, card.id);
+            }
+        });
+        
+        updateAll(cards);
+        res.json({ success: true, message: 'Custom cards updated successfully' });
+    } catch (error) {
+        console.error('Error updating custom cards:', error);
+        res.status(500).json({ error: 'Failed to update custom cards' });
+    }
+});
+
+// 6. 커스텀 카드 삭제
+router.delete('/custom-cards/:id', (req, res) => {
+    const cardId = req.params.id;
+    try {
+        db.prepare('DELETE FROM custom_cards WHERE id = ?').run(cardId);
+        res.json({ success: true, message: 'Custom card deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting custom card:', error);
+        res.status(500).json({ error: 'Failed to delete custom card' });
+    }
+});
+
 module.exports = router;

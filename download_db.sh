@@ -1,1 +1,1 @@
-scp -i ~/.ssh/id_rsa ec2-user@13.125.69.174:/home/ec2-user/my_finace/backend/db/wolcheon.db ./backend/db/wolcheon.db
+scp -i ~/.ssh/id_rsa ec2-user@13.125.69.174:/home/ec2-user/my_finance/backend/db/wolcheon.db ./backend/db/wolcheon.db

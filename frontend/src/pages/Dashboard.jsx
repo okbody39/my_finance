@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, rectSortingStrategy } from '@dnd-kit/sortable';
+import { evaluate } from 'mathjs';
+import { Plus, Settings } from 'lucide-react';
+import { SortableCustomCard } from '../components/SortableCustomCard';
 
 export default function Dashboard() {
     const currentRealYear = new Date().getFullYear();
@@ -21,6 +27,20 @@ export default function Dashboard() {
     const [marketData, setMarketData] = useState([]);
     const [expenseChartPeriod, setExpenseChartPeriod] = useState('yearly');
 
+    // Custom Cards state
+    const [customCards, setCustomCards] = useState([]);
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingCard, setEditingCard] = useState(null);
+    const [cardForm, setCardForm] = useState({ title: '', formula: '' });
+
+    const [customStockPrices, setCustomStockPrices] = useState({});
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
+
     useEffect(() => {
         fetch(`/api/dashboard/summary?year=${selectedYear}`)
             .then(res => res.json())
@@ -31,7 +51,39 @@ export default function Dashboard() {
             .then(res => res.json())
             .then(data => setMarketData(data))
             .catch(err => console.error('Failed to fetch market data:', err));
+
+        fetch(`/api/dashboard/custom-cards`)
+            .then(res => res.json())
+            .then(data => setCustomCards(data))
+            .catch(err => console.error('Failed to fetch custom cards:', err));
     }, [selectedYear]);
+
+    useEffect(() => {
+        const fetchStocks = async () => {
+            const regex = /(?:KOSPI|stock)\(["']([^"']+)["']\)/g;
+            const newPrices = { ...customStockPrices };
+            let hasNew = false;
+            for (const card of customCards) {
+                let match;
+                while ((match = regex.exec(card.formula)) !== null) {
+                    const symbol = match[1];
+                    if (newPrices[symbol] === undefined) {
+                        try {
+                            const res = await fetch(`/api/dashboard/stock/${symbol}`);
+                            const data = await res.json();
+                            newPrices[symbol] = data.price || 0;
+                            hasNew = true;
+                        } catch (err) {
+                            newPrices[symbol] = 0;
+                            hasNew = true;
+                        }
+                    }
+                }
+            }
+            if (hasNew) setCustomStockPrices(newPrices);
+        };
+        fetchStocks();
+    }, [customCards, customStockPrices]);
 
     const formatCurrency = (val) => new Intl.NumberFormat('ko-KR').format(val) + '원';
     const formatCurrencyThousands = (val) => new Intl.NumberFormat('ko-KR').format(Math.floor((val || 0) / 1000)) + '천원';
@@ -78,6 +130,130 @@ export default function Dashboard() {
         fontSize: '1rem',
         cursor: 'pointer',
         fontWeight: 'bold'
+    };
+
+    const evaluateFormula = (formula) => {
+        try {
+            const context = {
+                NetWorth: summary.netWorth || 0,
+                TotalCash: summary.totalCash || 0,
+                TotalInvestments: summary.totalInvestments || 0,
+                Income: summary.cumulativeIncome || 0,
+                Expense: summary.cumulativeExpense || 0,
+                Investment: summary.cumulativeInvestment || 0,
+            };
+            marketData.forEach(m => {
+                if (m.name && m.price) {
+                    if (m.symbol === '^GSPC') context.S_P500 = m.price;
+                    else if (m.symbol === '^KS11') context.KOSPI = m.price;
+                    else if (m.symbol === 'KRW=X') context.USD_KRW = m.price;
+                    else if (m.symbol === 'GC=F') context.Gold = m.price;
+                    else {
+                        const cleanName = m.name.replace(/[^a-zA-Z0-9]/g, '_');
+                        context[cleanName] = m.price;
+                    }
+                }
+            });
+
+            context.daysSince = (dateStr) => {
+                const target = new Date(dateStr);
+                const diffTime = Math.abs(new Date() - target);
+                return Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+            };
+            context.daySince = context.daysSince;
+
+            context.monthsSince = (dateStr) => {
+                const target = new Date(dateStr);
+                const now = new Date();
+                const diffMonths = (now.getFullYear() - target.getFullYear()) * 12 + (now.getMonth() - target.getMonth());
+                // Handle partial months dynamically using decimals
+                const diffDays = now.getDate() - target.getDate();
+                return diffMonths + (diffDays / 30);
+            };
+            context.monthSince = context.monthsSince;
+
+            context.KOSPI = (code) => {
+                return customStockPrices[code] || 0;
+            };
+            context.stock = context.KOSPI;
+
+            const result = evaluate(formula, context);
+            if (typeof result === 'number') {
+                if (result > 10000 || result < -10000) {
+                    return new Intl.NumberFormat('ko-KR').format(Math.floor(result));
+                }
+                return Number.isInteger(result) ? result : result.toFixed(2);
+            }
+            return result;
+        } catch (error) {
+            return '수식 오류';
+        }
+    };
+
+    const handleAddOrEditCard = async () => {
+        if (!cardForm.title || !cardForm.formula) return;
+        try {
+            if (editingCard) {
+                const updatedCards = customCards.map(c => 
+                    c.id === editingCard.id ? { ...c, title: cardForm.title, formula: cardForm.formula } : c
+                );
+                await fetch('/api/dashboard/custom-cards', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cards: updatedCards })
+                });
+                setCustomCards(updatedCards);
+            } else {
+                const res = await fetch('/api/dashboard/custom-cards', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(cardForm)
+                });
+                if (res.ok) {
+                    const newCard = await res.json();
+                    setCustomCards([...customCards, newCard]);
+                }
+            }
+            setIsModalOpen(false);
+            setEditingCard(null);
+            setCardForm({ title: '', formula: '' });
+        } catch (error) {
+            console.error('Failed to save custom card', error);
+        }
+    };
+
+    const handleDeleteCard = async (id) => {
+        if (!confirm('카드를 삭제하시겠습니까?')) return;
+        try {
+            await fetch(`/api/dashboard/custom-cards/${id}`, { method: 'DELETE' });
+            setCustomCards(customCards.filter(c => c.id !== id));
+        } catch (error) {
+            console.error('Failed to delete custom card', error);
+        }
+    };
+
+    const handleDragEnd = async (event) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+        
+        const oldIndex = customCards.findIndex((x) => x.id.toString() === active.id);
+        const newIndex = customCards.findIndex((x) => x.id.toString() === over.id);
+        
+        const newOrder = arrayMove(customCards, oldIndex, newIndex).map((card, index) => ({
+            ...card,
+            layout_order: index
+        }));
+        setCustomCards(newOrder);
+        
+        try {
+            await fetch('/api/dashboard/custom-cards', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cards: newOrder })
+            });
+        } catch (err) {
+            console.error('Failed to update order', err);
+        }
     };
 
     return (
@@ -130,6 +306,82 @@ export default function Dashboard() {
                             )}
                         </div>
                     ))}
+                </div>
+            )}
+
+            {/* Custom Cards Section */}
+            {customCards && customCards.length > 0 && (
+                <div style={{ padding: '8px 0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                        <h3 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px', color: '#f8fafc' }}>
+                            내 커스텀 지표
+                        </h3>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                                onClick={() => setIsEditMode(!isEditMode)}
+                                style={{
+                                    background: isEditMode ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255,255,255,0.1)',
+                                    border: 'none', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', color: isEditMode ? '#38bdf8' : '#fff', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem'
+                                }}
+                            >
+                                <Settings size={16} /> 
+                                {isEditMode ? '수정 완료' : '카드 관리'}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setEditingCard(null);
+                                    setCardForm({ title: '', formula: '' });
+                                    setIsModalOpen(true);
+                                }}
+                                style={{
+                                    background: '#38bdf8', color: '#0f1115', border: 'none', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', fontWeight: 600
+                                }}
+                            >
+                                <Plus size={16} /> 새 카드 추가
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                        <SortableContext items={customCards.map(c => c.id.toString())} strategy={rectSortingStrategy}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+                                {customCards.map(card => (
+                                    <div key={card.id}>
+                                        <SortableCustomCard
+                                            id={card.id}
+                                            title={card.title}
+                                            formula={card.formula}
+                                            evaluatedValue={evaluateFormula(card.formula)}
+                                            isEditingMode={isEditMode}
+                                            onEdit={(c) => {
+                                                setEditingCard(c);
+                                                setCardForm({ title: c.title, formula: c.formula });
+                                                setIsModalOpen(true);
+                                            }}
+                                            onDelete={handleDeleteCard}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </SortableContext>
+                    </DndContext>
+                </div>
+            )}
+
+            {(!customCards || customCards.length === 0) && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-40px', marginBottom: '40px' }}>
+                     <button
+                        onClick={() => {
+                            setEditingCard(null);
+                            setCardForm({ title: '', formula: '' });
+                            setIsModalOpen(true);
+                        }}
+                        style={{
+                            background: '#38bdf8', color: '#0f1115', border: 'none', padding: '6px 16px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', fontWeight: 600
+                        }}
+                    >
+                        <Plus size={16} /> 첫 커스텀 카드 추가
+                    </button>
                 </div>
             )}
 
@@ -290,6 +542,54 @@ export default function Dashboard() {
                     )}
                 </div>
             </div>
+
+            {/* Custom Card Modal */}
+            {isModalOpen && createPortal(
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div className="glass-panel" style={{ width: '400px', padding: '24px', position: 'relative', background: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px' }}>
+                        <h2 style={{ margin: '0 0 16px', fontSize: '1.25rem' }}>{editingCard ? '커스텀 지표 수정' : '새 커스텀 지표 작성'}</h2>
+                        
+                        <div style={{ marginBottom: '16px' }}>
+                            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>카드 제목</label>
+                            <input 
+                                type="text" 
+                                value={cardForm.title}
+                                onChange={(e) => setCardForm({...cardForm, title: e.target.value})}
+                                placeholder="예: 목표 달성률"
+                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.3)', color: '#fff', outline: 'none' }}
+                            />
+                        </div>
+
+                        <div style={{ marginBottom: '24px' }}>
+                            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>
+                                계산식 (예: <span style={{ color: '#38bdf8' }}>USD_KRW * 100</span>)
+                            </label>
+                            <textarea 
+                                value={cardForm.formula}
+                                onChange={(e) => setCardForm({...cardForm, formula: e.target.value})}
+                                placeholder="사용 가능 변수: NetWorth, TotalCash, Income, Expense, Investment, S_P500, KOSPI, USD_KRW, Gold, daysSince('2024-01-01')"
+                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.3)', color: '#fff', outline: 'none', height: '100px', resize: 'vertical' }}
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                            <button 
+                                onClick={() => {
+                                    setIsModalOpen(false);
+                                    setEditingCard(null);
+                                    setCardForm({ title: '', formula: '' });
+                                }}
+                                style={{ padding: '8px 16px', background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', borderRadius: '8px', cursor: 'pointer' }}
+                            >취소</button>
+                            <button 
+                                onClick={handleAddOrEditCard}
+                                style={{ padding: '8px 16px', background: '#38bdf8', border: 'none', color: '#0f1115', fontWeight: 'bold', borderRadius: '8px', cursor: 'pointer' }}
+                            >저장</button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
 
         </div>
     );

@@ -58,6 +58,13 @@ function initializeDatabase() {
       name TEXT NOT NULL,          -- 카테고리명
       is_active BOOLEAN DEFAULT 1  -- 활성화 여부
     );
+
+    CREATE TABLE IF NOT EXISTS custom_cards (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      formula TEXT NOT NULL,
+      layout_order INTEGER DEFAULT 0
+    );
   `;
 
   db.exec(initScript);
