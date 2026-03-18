@@ -63,11 +63,22 @@ function initializeDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
       formula TEXT NOT NULL,
-      layout_order INTEGER DEFAULT 0
+      layout_order INTEGER DEFAULT 0,
+      goal_operator TEXT,
+      goal_value REAL
     );
   `;
 
   db.exec(initScript);
+
+  try {
+    db.exec("ALTER TABLE custom_cards ADD COLUMN goal_operator TEXT");
+    db.exec("ALTER TABLE custom_cards ADD COLUMN goal_value REAL");
+    console.log("Migration: Added goal_operator and goal_value to custom_cards");
+  } catch (err) {
+    // Columns might already exist, safe to ignore
+  }
+
   console.log("Database tables initialized successfully.");
 
   // 초기 카테고리 데이터 세팅 (Seed)

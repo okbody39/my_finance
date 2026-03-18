@@ -233,7 +233,7 @@ router.get('/custom-cards', (req, res) => {
 
 // 4. 커스텀 카드 생성
 router.post('/custom-cards', (req, res) => {
-    const { title, formula } = req.body;
+    const { title, formula, goal_operator, goal_value } = req.body;
     
     if (!title || !formula) {
         return res.status(400).json({ error: 'Title and formula are required' });
@@ -243,14 +243,16 @@ router.post('/custom-cards', (req, res) => {
         const maxOrderResult = db.prepare('SELECT MAX(layout_order) as maxOrder FROM custom_cards').get();
         const nextOrder = (maxOrderResult.maxOrder || 0) + 1;
         
-        const stmt = db.prepare('INSERT INTO custom_cards (title, formula, layout_order) VALUES (?, ?, ?)');
-        const result = stmt.run(title, formula, nextOrder);
+        const stmt = db.prepare('INSERT INTO custom_cards (title, formula, layout_order, goal_operator, goal_value) VALUES (?, ?, ?, ?, ?)');
+        const result = stmt.run(title, formula, nextOrder, goal_operator || null, goal_value !== undefined ? goal_value : null);
         
         res.status(201).json({ 
             id: result.lastInsertRowid,
             title,
             formula,
-            layout_order: nextOrder
+            layout_order: nextOrder,
+            goal_operator: goal_operator || null,
+            goal_value: goal_value !== undefined ? goal_value : null
         });
     } catch (error) {
         console.error('Error creating custom card:', error);
@@ -267,11 +269,11 @@ router.put('/custom-cards', (req, res) => {
     }
     
     try {
-        const updateStmt = db.prepare('UPDATE custom_cards SET title = COALESCE(?, title), formula = COALESCE(?, formula), layout_order = COALESCE(?, layout_order) WHERE id = ?');
+        const updateStmt = db.prepare('UPDATE custom_cards SET title = COALESCE(?, title), formula = COALESCE(?, formula), layout_order = COALESCE(?, layout_order), goal_operator = COALESCE(?, goal_operator), goal_value = COALESCE(?, goal_value) WHERE id = ?');
         
         const updateAll = db.transaction((cardList) => {
             for (const card of cardList) {
-                updateStmt.run(card.title, card.formula, card.layout_order, card.id);
+                updateStmt.run(card.title, card.formula, card.layout_order, card.goal_operator, card.goal_value, card.id);
             }
         });
         

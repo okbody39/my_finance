@@ -32,7 +32,7 @@ export default function Dashboard() {
     const [isEditMode, setIsEditMode] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCard, setEditingCard] = useState(null);
-    const [cardForm, setCardForm] = useState({ title: '', formula: '' });
+    const [cardForm, setCardForm] = useState({ title: '', formula: '', goalOperator: '', goalValue: '' });
 
     const [customStockPrices, setCustomStockPrices] = useState({});
 
@@ -180,9 +180,9 @@ export default function Dashboard() {
             const result = evaluate(formula, context);
             if (typeof result === 'number') {
                 if (result > 10000 || result < -10000) {
-                    return new Intl.NumberFormat('ko-KR').format(Math.floor(result));
+                    return Math.floor(result); // Number 반환
                 }
-                return Number.isInteger(result) ? result : result.toFixed(2);
+                return Number.isInteger(result) ? result : parseFloat(result.toFixed(2));
             }
             return result;
         } catch (error) {
@@ -193,9 +193,16 @@ export default function Dashboard() {
     const handleAddOrEditCard = async () => {
         if (!cardForm.title || !cardForm.formula) return;
         try {
+            const payload = {
+                title: cardForm.title,
+                formula: cardForm.formula,
+                goal_operator: cardForm.goalOperator || null,
+                goal_value: cardForm.goalValue !== '' && !isNaN(cardForm.goalValue) ? parseFloat(cardForm.goalValue) : null
+            };
+
             if (editingCard) {
                 const updatedCards = customCards.map(c => 
-                    c.id === editingCard.id ? { ...c, title: cardForm.title, formula: cardForm.formula } : c
+                    c.id === editingCard.id ? { ...c, ...payload } : c
                 );
                 await fetch('/api/dashboard/custom-cards', {
                     method: 'PUT',
@@ -207,7 +214,7 @@ export default function Dashboard() {
                 const res = await fetch('/api/dashboard/custom-cards', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(cardForm)
+                    body: JSON.stringify(payload)
                 });
                 if (res.ok) {
                     const newCard = await res.json();
@@ -216,7 +223,7 @@ export default function Dashboard() {
             }
             setIsModalOpen(false);
             setEditingCard(null);
-            setCardForm({ title: '', formula: '' });
+            setCardForm({ title: '', formula: '', goalOperator: '', goalValue: '' });
         } catch (error) {
             console.error('Failed to save custom card', error);
         }
@@ -330,7 +337,7 @@ export default function Dashboard() {
                             <button
                                 onClick={() => {
                                     setEditingCard(null);
-                                    setCardForm({ title: '', formula: '' });
+                                    setCardForm({ title: '', formula: '', goalOperator: '', goalValue: '' });
                                     setIsModalOpen(true);
                                 }}
                                 style={{
@@ -352,10 +359,12 @@ export default function Dashboard() {
                                             title={card.title}
                                             formula={card.formula}
                                             evaluatedValue={evaluateFormula(card.formula)}
+                                            goalOperator={card.goal_operator}
+                                            goalValue={card.goal_value}
                                             isEditingMode={isEditMode}
                                             onEdit={(c) => {
                                                 setEditingCard(c);
-                                                setCardForm({ title: c.title, formula: c.formula });
+                                                setCardForm({ title: c.title, formula: c.formula, goalOperator: c.goalOperator || '', goalValue: c.goalValue !== null ? c.goalValue : '' });
                                                 setIsModalOpen(true);
                                             }}
                                             onDelete={handleDeleteCard}
@@ -373,7 +382,7 @@ export default function Dashboard() {
                      <button
                         onClick={() => {
                             setEditingCard(null);
-                            setCardForm({ title: '', formula: '' });
+                            setCardForm({ title: '', formula: '', goalOperator: '', goalValue: '' });
                             setIsModalOpen(true);
                         }}
                         style={{
@@ -572,12 +581,38 @@ export default function Dashboard() {
                             />
                         </div>
 
+                        <div style={{ marginBottom: '24px', display: 'flex', gap: '12px' }}>
+                            <div style={{ flex: 1 }}>
+                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>목표 조건</label>
+                                <select 
+                                    value={cardForm.goalOperator}
+                                    onChange={(e) => setCardForm({...cardForm, goalOperator: e.target.value})}
+                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.3)', color: '#fff', outline: 'none' }}
+                                >
+                                    <option value="">없음</option>
+                                    <option value=">">결과가 큼 {'>'}</option>
+                                    <option value="<">결과가 작음 {'<'}</option>
+                                    <option value="=">결과가 같음 {'='}</option>
+                                </select>
+                            </div>
+                            <div style={{ flex: 2 }}>
+                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>기준 값 (Number)</label>
+                                <input 
+                                    type="number" 
+                                    value={cardForm.goalValue}
+                                    onChange={(e) => setCardForm({...cardForm, goalValue: e.target.value})}
+                                    placeholder="예: 228000"
+                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.3)', color: '#fff', outline: 'none' }}
+                                />
+                            </div>
+                        </div>
+
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                             <button 
                                 onClick={() => {
                                     setIsModalOpen(false);
                                     setEditingCard(null);
-                                    setCardForm({ title: '', formula: '' });
+                                    setCardForm({ title: '', formula: '', goalOperator: '', goalValue: '' });
                                 }}
                                 style={{ padding: '8px 16px', background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', borderRadius: '8px', cursor: 'pointer' }}
                             >취소</button>
