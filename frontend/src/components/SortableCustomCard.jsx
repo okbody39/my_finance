@@ -3,7 +3,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Edit2, Trash2 } from 'lucide-react';
 
-export function SortableCustomCard({ id, title, formula, evaluatedValue, goalOperator, goalValue, isEditingMode, onEdit, onDelete }) {
+export function SortableCustomCard({ id, title, formula, evaluatedValue, goalOperator, rawGoalValue, evaluatedGoalValue, isEditingMode, onEdit, onDelete }) {
     const {
         attributes,
         listeners,
@@ -23,10 +23,10 @@ export function SortableCustomCard({ id, title, formula, evaluatedValue, goalOpe
 
     // 목표 달성 여부 체크
     let isGoalMet = false;
-    if (goalOperator && goalValue !== null && goalValue !== undefined && typeof evaluatedValue === 'number' && !isNaN(evaluatedValue)) {
-        if (goalOperator === '>') isGoalMet = evaluatedValue > goalValue;
-        else if (goalOperator === '<') isGoalMet = evaluatedValue < goalValue;
-        else if (goalOperator === '=') isGoalMet = evaluatedValue === goalValue;
+    if (goalOperator && evaluatedGoalValue !== null && evaluatedGoalValue !== undefined && typeof evaluatedValue === 'number' && !isNaN(evaluatedValue)) {
+        if (goalOperator === '>') isGoalMet = evaluatedValue > evaluatedGoalValue;
+        else if (goalOperator === '<') isGoalMet = evaluatedValue < evaluatedGoalValue;
+        else if (goalOperator === '=') isGoalMet = evaluatedValue === evaluatedGoalValue;
     }
 
     const cardBgClass = isGoalMet ? "glass-panel hover-card goal-met-glow" : "glass-panel hover-card";
@@ -40,7 +40,7 @@ export function SortableCustomCard({ id, title, formula, evaluatedValue, goalOpe
                 </h3>
                 {isEditingMode && (
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <button onClick={() => onEdit({id, title, formula, goalOperator, goalValue})} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px' }} title="수정">
+                        <button onClick={() => onEdit({id, title, formula, goalOperator, goalValue: rawGoalValue})} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px' }} title="수정">
                             <Edit2 size={16} />
                         </button>
                         <button onClick={() => onDelete(id)} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }} title="삭제">
@@ -57,14 +57,15 @@ export function SortableCustomCard({ id, title, formula, evaluatedValue, goalOpe
                 {typeof evaluatedValue === 'number' ? new Intl.NumberFormat('ko-KR').format(evaluatedValue) : evaluatedValue}
             </div>
             
-            {goalOperator && goalValue !== null && goalValue !== undefined && (
+            {goalOperator && evaluatedGoalValue !== null && evaluatedGoalValue !== undefined && (
                 <div style={{ color: isGoalMet ? '#10b981' : '#64748b', fontSize: '0.85rem', marginTop: 'auto', fontWeight: 500 }}>
-                    목표: {goalOperator} {new Intl.NumberFormat('ko-KR').format(goalValue)}
+                    목표: {goalOperator} {typeof evaluatedGoalValue === 'number' ? new Intl.NumberFormat('ko-KR').format(evaluatedGoalValue) : evaluatedGoalValue}
+                    {rawGoalValue !== evaluatedGoalValue.toString() && <span style={{fontSize: '0.75rem', marginLeft: '4px'}}>({rawGoalValue})</span>}
                 </div>
             )}
             
             {isEditingMode && (
-                <div style={{ color: '#64748b', fontSize: '0.75rem', marginTop: (goalOperator && goalValue !== null && goalValue !== undefined) ? '8px' : 'auto', wordBreak: 'break-all' }}>
+                <div style={{ color: '#64748b', fontSize: '0.75rem', marginTop: (goalOperator && evaluatedGoalValue !== null && evaluatedGoalValue !== undefined) ? '8px' : 'auto', wordBreak: 'break-all' }}>
                     수식: {formula}
                 </div>
             )}

@@ -65,7 +65,7 @@ function initializeDatabase() {
       formula TEXT NOT NULL,
       layout_order INTEGER DEFAULT 0,
       goal_operator TEXT,
-      goal_value REAL
+      goal_value TEXT
     );
   `;
 
@@ -73,7 +73,7 @@ function initializeDatabase() {
 
   try {
     db.exec("ALTER TABLE custom_cards ADD COLUMN goal_operator TEXT");
-    db.exec("ALTER TABLE custom_cards ADD COLUMN goal_value REAL");
+    db.exec("ALTER TABLE custom_cards ADD COLUMN goal_value TEXT");
     console.log("Migration: Added goal_operator and goal_value to custom_cards");
   } catch (err) {
     // Columns might already exist, safe to ignore

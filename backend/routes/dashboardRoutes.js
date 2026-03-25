@@ -220,6 +220,59 @@ router.get('/stock/:symbol', async (req, res) => {
     }
 });
 
+// 2-2. 특종 종목 주가 EMA (지수이동평균) 계산 조회
+let customEmaCache = {};
+router.get('/stock/:symbol/ema/:period', async (req, res) => {
+    try {
+        let symbol = req.params.symbol;
+        if (!symbol.includes('.')) {
+            symbol = `${symbol}.KS`; 
+        }
+        const period = parseInt(req.params.period, 10);
+        if (isNaN(period) || period <= 0) {
+            return res.status(400).json({ error: 'Invalid period' });
+        }
+
+        const cacheKey = `${symbol}_${period}`;
+        const now = Date.now();
+        if (customEmaCache[cacheKey] && now - customEmaCache[cacheKey].lastFetched < 300000) {
+            return res.json(customEmaCache[cacheKey].data);
+        }
+
+        // 2 years range to have enough data for EMA calculation
+        const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2y`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        
+        const result = data.chart.result[0];
+        const closePrices = result.indicators.quote[0].close.filter(p => p !== null && !isNaN(p));
+
+        if (closePrices.length < period) {
+            return res.status(400).json({ error: 'Not enough data points to calculate EMA' });
+        }
+
+        const k = 2 / (period + 1);
+        
+        // Initial SMA as the first EMA value
+        let sum = 0;
+        for (let i = 0; i < period; i++) sum += closePrices[i];
+        let ema = sum / period;
+
+        // Calculate EMA for the rest of the days
+        for (let i = period; i < closePrices.length; i++) {
+            ema = (closePrices[i] * k) + (ema * (1 - k));
+        }
+
+        const responseData = { symbol, period, ema };
+        customEmaCache[cacheKey] = { data: responseData, lastFetched: now };
+        
+        res.json(responseData);
+    } catch (error) {
+        console.error(`[Stock EMA Data] Error fetching ${req.params.symbol}:`, error.message);
+        res.status(500).json({ error: 'Failed to calculate EMA data' });
+    }
+});
+
 // 3. 커스텀 카드 목록 조회
 router.get('/custom-cards', (req, res) => {
     try {
@@ -244,7 +297,7 @@ router.post('/custom-cards', (req, res) => {
         const nextOrder = (maxOrderResult.maxOrder || 0) + 1;
         
         const stmt = db.prepare('INSERT INTO custom_cards (title, formula, layout_order, goal_operator, goal_value) VALUES (?, ?, ?, ?, ?)');
-        const result = stmt.run(title, formula, nextOrder, goal_operator || null, goal_value !== undefined ? goal_value : null);
+        const result = stmt.run(title, formula, nextOrder, goal_operator || null, goal_value !== undefined && goal_value !== '' ? String(goal_value) : null);
         
         res.status(201).json({ 
             id: result.lastInsertRowid,
@@ -252,7 +305,7 @@ router.post('/custom-cards', (req, res) => {
             formula,
             layout_order: nextOrder,
             goal_operator: goal_operator || null,
-            goal_value: goal_value !== undefined ? goal_value : null
+            goal_value: goal_value !== undefined && goal_value !== '' ? String(goal_value) : null
         });
     } catch (error) {
         console.error('Error creating custom card:', error);

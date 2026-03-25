@@ -35,6 +35,7 @@ export default function Dashboard() {
     const [cardForm, setCardForm] = useState({ title: '', formula: '', goalOperator: '', goalValue: '' });
 
     const [customStockPrices, setCustomStockPrices] = useState({});
+    const [customEmaPrices, setCustomEmaPrices] = useState({});
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -59,31 +60,56 @@ export default function Dashboard() {
     }, [selectedYear]);
 
     useEffect(() => {
-        const fetchStocks = async () => {
-            const regex = /(?:KOSPI|stock)\(["']([^"']+)["']\)/g;
-            const newPrices = { ...customStockPrices };
-            let hasNew = false;
+        const fetchStocksAndEma = async () => {
+            const stockRegex = /(?:KOSPI|stock)\(["']([^"']+)["']\)/g;
+            const emaRegex = /ema\(["']([^"']+)["'],\s*(\d+)\)/g;
+            const newStockPrices = { ...customStockPrices };
+            const newEmaPrices = { ...customEmaPrices };
+            let hasNewStock = false;
+            let hasNewEma = false;
+
             for (const card of customCards) {
-                let match;
-                while ((match = regex.exec(card.formula)) !== null) {
-                    const symbol = match[1];
-                    if (newPrices[symbol] === undefined) {
+                const combinedFormula = card.formula + " " + (card.goal_value || "");
+                
+                let stockMatch;
+                while ((stockMatch = stockRegex.exec(combinedFormula)) !== null) {
+                    const symbol = stockMatch[1];
+                    if (newStockPrices[symbol] === undefined) {
                         try {
                             const res = await fetch(`/api/dashboard/stock/${symbol}`);
                             const data = await res.json();
-                            newPrices[symbol] = data.price || 0;
-                            hasNew = true;
-                        } catch (err) {
-                            newPrices[symbol] = 0;
-                            hasNew = true;
+                            newStockPrices[symbol] = data.price || 0;
+                            hasNewStock = true;
+                        } catch {
+                            newStockPrices[symbol] = 0;
+                            hasNewStock = true;
+                        }
+                    }
+                }
+
+                let emaMatch;
+                while ((emaMatch = emaRegex.exec(combinedFormula)) !== null) {
+                    const symbol = emaMatch[1];
+                    const period = parseInt(emaMatch[2], 10);
+                    const cacheKey = `${symbol}_${period}`;
+                    if (newEmaPrices[cacheKey] === undefined) {
+                        try {
+                            const res = await fetch(`/api/dashboard/stock/${symbol}/ema/${period}`);
+                            const data = await res.json();
+                            newEmaPrices[cacheKey] = data.ema || 0;
+                            hasNewEma = true;
+                        } catch {
+                            newEmaPrices[cacheKey] = 0;
+                            hasNewEma = true;
                         }
                     }
                 }
             }
-            if (hasNew) setCustomStockPrices(newPrices);
+            if (hasNewStock) setCustomStockPrices(newStockPrices);
+            if (hasNewEma) setCustomEmaPrices(newEmaPrices);
         };
-        fetchStocks();
-    }, [customCards, customStockPrices]);
+        fetchStocksAndEma();
+    }, [customCards, customStockPrices, customEmaPrices]);
 
     const formatCurrency = (val) => new Intl.NumberFormat('ko-KR').format(val) + '원';
     const formatCurrencyThousands = (val) => new Intl.NumberFormat('ko-KR').format(Math.floor((val || 0) / 1000)) + '천원';
@@ -177,6 +203,10 @@ export default function Dashboard() {
             };
             context.stock = context.KOSPI;
 
+            context.ema = (code, period) => {
+                return customEmaPrices[`${code}_${period}`] || 0;
+            };
+
             const result = evaluate(formula, context);
             if (typeof result === 'number') {
                 if (result > 10000 || result < -10000) {
@@ -185,7 +215,7 @@ export default function Dashboard() {
                 return Number.isInteger(result) ? result : parseFloat(result.toFixed(2));
             }
             return result;
-        } catch (error) {
+        } catch {
             return '수식 오류';
         }
     };
@@ -197,7 +227,7 @@ export default function Dashboard() {
                 title: cardForm.title,
                 formula: cardForm.formula,
                 goal_operator: cardForm.goalOperator || null,
-                goal_value: cardForm.goalValue !== '' && !isNaN(cardForm.goalValue) ? parseFloat(cardForm.goalValue) : null
+                goal_value: cardForm.goalValue !== '' && cardForm.goalValue !== null ? String(cardForm.goalValue) : null
             };
 
             if (editingCard) {
@@ -360,7 +390,8 @@ export default function Dashboard() {
                                             formula={card.formula}
                                             evaluatedValue={evaluateFormula(card.formula)}
                                             goalOperator={card.goal_operator}
-                                            goalValue={card.goal_value}
+                                            rawGoalValue={card.goal_value}
+                                            evaluatedGoalValue={card.goal_value !== null && card.goal_value !== undefined ? (isNaN(Number(card.goal_value)) ? evaluateFormula(card.goal_value) : Number(card.goal_value)) : null}
                                             isEditingMode={isEditMode}
                                             onEdit={(c) => {
                                                 setEditingCard(c);
@@ -596,12 +627,12 @@ export default function Dashboard() {
                                 </select>
                             </div>
                             <div style={{ flex: 2 }}>
-                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>기준 값 (Number)</label>
+                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>기준 값 (수식 가능)</label>
                                 <input 
-                                    type="number" 
+                                    type="text" 
                                     value={cardForm.goalValue}
                                     onChange={(e) => setCardForm({...cardForm, goalValue: e.target.value})}
-                                    placeholder="예: 228000"
+                                    placeholder="예: 228000 또는 ema('005930', 120)"
                                     style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.3)', color: '#fff', outline: 'none' }}
                                 />
                             </div>
