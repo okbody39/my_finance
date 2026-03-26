@@ -77,57 +77,80 @@ export default function Dashboard() {
         const fetchStocksAndEma = async () => {
             const stockRegex = /(?:KOSPI|stock)\(["']([^"']+)["']\)/g;
             const emaRegex = /ema\(["']([^"']+)["'],\s*(\d+)\)/g;
-            const newStockPrices = { ...customStockPrices };
-            const newEmaPrices = { ...customEmaPrices };
-            let hasNewStock = false;
-            let hasNewEma = false;
+            
+            const uniqueStocks = new Set();
+            const uniqueEmas = new Set();
 
             for (const card of customCards) {
                 const combinedFormula = card.formula + " " + (card.goal_value || "");
                 
                 let stockMatch;
                 while ((stockMatch = stockRegex.exec(combinedFormula)) !== null) {
-                    const symbol = stockMatch[1];
-                    if (newStockPrices[symbol] === undefined) {
-                        try {
-                            const res = await fetch(`/api/dashboard/stock/${symbol}`);
-                            const data = await res.json();
-                            newStockPrices[symbol] = data.price || 0;
-                            hasNewStock = true;
-                        } catch {
-                            newStockPrices[symbol] = 0;
-                            hasNewStock = true;
-                        }
-                    }
+                    uniqueStocks.add(stockMatch[1]);
                 }
 
                 let emaMatch;
                 while ((emaMatch = emaRegex.exec(combinedFormula)) !== null) {
-                    const symbol = emaMatch[1];
-                    const period = parseInt(emaMatch[2], 10);
-                    const cacheKey = `${symbol}_${period}`;
-                    if (newEmaPrices[cacheKey] === undefined) {
-                        try {
-                            const res = await fetch(`/api/dashboard/stock/${symbol}/ema/${period}`);
-                            const data = await res.json();
-                            newEmaPrices[cacheKey] = data.ema || 0;
-                            hasNewEma = true;
-                        } catch {
-                            newEmaPrices[cacheKey] = 0;
-                            hasNewEma = true;
-                        }
-                    }
+                    uniqueEmas.add(`${emaMatch[1]}_${emaMatch[2]}`);
                 }
             }
-            if (hasNewStock) setCustomStockPrices(newStockPrices);
-            if (hasNewEma) setCustomEmaPrices(newEmaPrices);
+
+            const newStocks = {};
+            const newEmas = {};
+
+            await Promise.all([
+                ...Array.from(uniqueStocks).map(async (symbol) => {
+                    try {
+                        const res = await fetch(`/api/dashboard/stock/${symbol}`);
+                        const data = await res.json();
+                        newStocks[symbol] = data.price || 0;
+                    } catch {
+                        newStocks[symbol] = 0;
+                    }
+                }),
+                ...Array.from(uniqueEmas).map(async (cacheKey) => {
+                    try {
+                        const [symbol, period] = cacheKey.split('_');
+                        const res = await fetch(`/api/dashboard/stock/${symbol}/ema/${period}`);
+                        const data = await res.json();
+                        newEmas[cacheKey] = data.ema || 0;
+                    } catch {
+                        newEmas[cacheKey] = 0;
+                    }
+                })
+            ]);
+
+            setCustomStockPrices(prev => {
+                const updated = { ...prev };
+                let changed = false;
+                for (const key in newStocks) {
+                    if (updated[key] !== newStocks[key]) {
+                        updated[key] = newStocks[key];
+                        changed = true;
+                    }
+                }
+                return changed ? updated : prev;
+            });
+
+            setCustomEmaPrices(prev => {
+                const updated = { ...prev };
+                let changed = false;
+                for (const key in newEmas) {
+                    if (updated[key] !== newEmas[key]) {
+                        updated[key] = newEmas[key];
+                        changed = true;
+                    }
+                }
+                return changed ? updated : prev;
+            });
         };
+
         fetchStocksAndEma();
         
-        // Also setup interval to re-fetch stocks and EMAs every minute without changing customCards list
+        // Also setup interval to re-fetch stocks and EMAs every minute
         const interval = setInterval(fetchStocksAndEma, 60000);
         return () => clearInterval(interval);
-    }, [customCards, customStockPrices, customEmaPrices]);
+    }, [customCards]);
 
     const formatCurrency = (val) => new Intl.NumberFormat('ko-KR').format(val) + '원';
     const formatCurrencyThousands = (val) => new Intl.NumberFormat('ko-KR').format(Math.floor((val || 0) / 1000)) + '천원';
