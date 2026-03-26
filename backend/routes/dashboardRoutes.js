@@ -128,8 +128,8 @@ let marketCache = { data: null, lastFetched: 0 };
 router.get('/market', async (req, res) => {
     try {
         const now = Date.now();
-        // 5분(300000ms) 데이터 캐싱
-        if (marketCache.data && now - marketCache.lastFetched < 300000) {
+        // 1분(60000ms) 데이터 캐싱
+        if (marketCache.data && now - marketCache.lastFetched < 60000) {
             return res.json(marketCache.data);
         }
 
@@ -199,7 +199,7 @@ router.get('/stock/:symbol', async (req, res) => {
         }
 
         const now = Date.now();
-        if (customStockCache[symbol] && now - customStockCache[symbol].lastFetched < 300000) {
+        if (customStockCache[symbol] && now - customStockCache[symbol].lastFetched < 60000) {
             return res.json(customStockCache[symbol].data);
         }
 
@@ -235,7 +235,7 @@ router.get('/stock/:symbol/ema/:period', async (req, res) => {
 
         const cacheKey = `${symbol}_${period}`;
         const now = Date.now();
-        if (customEmaCache[cacheKey] && now - customEmaCache[cacheKey].lastFetched < 300000) {
+        if (customEmaCache[cacheKey] && now - customEmaCache[cacheKey].lastFetched < 60000) {
             return res.json(customEmaCache[cacheKey].data);
         }
 

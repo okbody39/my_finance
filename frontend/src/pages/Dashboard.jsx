@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
@@ -36,6 +36,9 @@ export default function Dashboard() {
 
     const [customStockPrices, setCustomStockPrices] = useState({});
     const [customEmaPrices, setCustomEmaPrices] = useState({});
+    
+    // For goal notifications
+    const notifiedCardsRef = useRef(new Set());
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -43,20 +46,31 @@ export default function Dashboard() {
     );
 
     useEffect(() => {
-        fetch(`/api/dashboard/summary?year=${selectedYear}`)
-            .then(res => res.json())
-            .then(data => setSummary(data))
-            .catch(err => console.error('Failed to fetch summary:', err));
+        // Request notification permission if needed
+        if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+            Notification.requestPermission();
+        }
 
-        fetch(`/api/dashboard/market`)
-            .then(res => res.json())
-            .then(data => setMarketData(data))
-            .catch(err => console.error('Failed to fetch market data:', err));
+        const fetchData = () => {
+            fetch(`/api/dashboard/summary?year=${selectedYear}`)
+                .then(res => res.json())
+                .then(data => setSummary(data))
+                .catch(err => console.error('Failed to fetch summary:', err));
 
-        fetch(`/api/dashboard/custom-cards`)
-            .then(res => res.json())
-            .then(data => setCustomCards(data))
-            .catch(err => console.error('Failed to fetch custom cards:', err));
+            fetch(`/api/dashboard/market`)
+                .then(res => res.json())
+                .then(data => setMarketData(data))
+                .catch(err => console.error('Failed to fetch market data:', err));
+
+            fetch(`/api/dashboard/custom-cards`)
+                .then(res => res.json())
+                .then(data => setCustomCards(data))
+                .catch(err => console.error('Failed to fetch custom cards:', err));
+        };
+
+        fetchData();
+        const interval = setInterval(fetchData, 60000); // Auto update every 1 minute
+        return () => clearInterval(interval);
     }, [selectedYear]);
 
     useEffect(() => {
@@ -109,6 +123,10 @@ export default function Dashboard() {
             if (hasNewEma) setCustomEmaPrices(newEmaPrices);
         };
         fetchStocksAndEma();
+        
+        // Also setup interval to re-fetch stocks and EMAs every minute without changing customCards list
+        const interval = setInterval(fetchStocksAndEma, 60000);
+        return () => clearInterval(interval);
     }, [customCards, customStockPrices, customEmaPrices]);
 
     const formatCurrency = (val) => new Intl.NumberFormat('ko-KR').format(val) + '원';
@@ -219,6 +237,42 @@ export default function Dashboard() {
             return '수식 오류';
         }
     };
+
+    useEffect(() => {
+        if (!customCards || customCards.length === 0) return;
+        
+        customCards.forEach(card => {
+            if (!card.goal_operator || card.goal_value === null || card.goal_value === undefined) {
+                notifiedCardsRef.current.delete(card.id);
+                return;
+            }
+
+            const evaluatedValue = evaluateFormula(card.formula);
+            const evaluatedGoalValue = isNaN(Number(card.goal_value)) ? evaluateFormula(card.goal_value) : Number(card.goal_value);
+            
+            let isGoalMet = false;
+            if (typeof evaluatedValue === 'number' && typeof evaluatedGoalValue === 'number' && !isNaN(evaluatedValue) && !isNaN(evaluatedGoalValue)) {
+                if (card.goal_operator === '>') isGoalMet = evaluatedValue > evaluatedGoalValue;
+                else if (card.goal_operator === '<') isGoalMet = evaluatedValue < evaluatedGoalValue;
+                else if (card.goal_operator === '=') isGoalMet = evaluatedValue === evaluatedGoalValue;
+            }
+
+            if (isGoalMet) {
+                if (!notifiedCardsRef.current.has(card.id)) {
+                    notifiedCardsRef.current.add(card.id);
+                    const nf = new Intl.NumberFormat('ko-KR');
+                    
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        new Notification(`🎯 목표 달성: ${card.title}`, {
+                            body: `현재값: ${nf.format(evaluatedValue)}\n목표: ${card.goal_operator} ${nf.format(evaluatedGoalValue)}`
+                        });
+                    }
+                }
+            } else {
+                notifiedCardsRef.current.delete(card.id);
+            }
+        });
+    }, [customCards, customStockPrices, customEmaPrices]);
 
     const handleAddOrEditCard = async () => {
         if (!cardForm.title || !cardForm.formula) return;
