@@ -38,6 +38,6 @@ async function testEMA(symbol, period) {
     }
 }
 
-testEMA('005930.KS', 120);
-testEMA('005930.KS', 60);
-testEMA('005930.KS', 5);
+testEMA('411060.KS', 120);
+// testEMA('005930.KS', 60);
+// testEMA('005930.KS', 5);
