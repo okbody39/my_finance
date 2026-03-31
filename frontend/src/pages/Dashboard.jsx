@@ -36,7 +36,7 @@ export default function Dashboard() {
 
     const [customStockPrices, setCustomStockPrices] = useState({});
     const [customEmaPrices, setCustomEmaPrices] = useState({});
-    
+
     // For goal notifications
     const notifiedCardsRef = useRef(new Set());
 
@@ -77,13 +77,13 @@ export default function Dashboard() {
         const fetchStocksAndEma = async () => {
             const stockRegex = /(?:KOSPI|stock)\(["']([^"']+)["']\)/g;
             const emaRegex = /ema\(["']([^"']+)["'],\s*(\d+)\)/g;
-            
+
             const uniqueStocks = new Set();
             const uniqueEmas = new Set();
 
             for (const card of customCards) {
                 const combinedFormula = card.formula + " " + (card.goal_value || "");
-                
+
                 let stockMatch;
                 while ((stockMatch = stockRegex.exec(combinedFormula)) !== null) {
                     uniqueStocks.add(stockMatch[1]);
@@ -146,7 +146,7 @@ export default function Dashboard() {
         };
 
         fetchStocksAndEma();
-        
+
         // Also setup interval to re-fetch stocks and EMAs every minute
         const interval = setInterval(fetchStocksAndEma, 60000);
         return () => clearInterval(interval);
@@ -160,8 +160,8 @@ export default function Dashboard() {
         ...(summary.investmentDetails || [])
     ].filter(item => item.value > 0);
 
-    const rawExpenseData = expenseChartPeriod === 'yearly' 
-        ? (summary.expenseDetails || []) 
+    const rawExpenseData = expenseChartPeriod === 'yearly'
+        ? (summary.expenseDetails || [])
         : (summary.monthlyExpenseDetails || []);
     const expenseData = rawExpenseData.filter(item => item.value > 0);
 
@@ -225,7 +225,7 @@ export default function Dashboard() {
             context.daysSince = (dateStr) => {
                 const target = new Date(dateStr);
                 const diffTime = Math.abs(new Date() - target);
-                return Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             };
             context.daySince = context.daysSince;
 
@@ -263,7 +263,7 @@ export default function Dashboard() {
 
     useEffect(() => {
         if (!customCards || customCards.length === 0) return;
-        
+
         customCards.forEach(card => {
             if (!card.goal_operator || card.goal_value === null || card.goal_value === undefined) {
                 notifiedCardsRef.current.delete(card.id);
@@ -272,7 +272,7 @@ export default function Dashboard() {
 
             const evaluatedValue = evaluateFormula(card.formula);
             const evaluatedGoalValue = isNaN(Number(card.goal_value)) ? evaluateFormula(card.goal_value) : Number(card.goal_value);
-            
+
             let isGoalMet = false;
             if (typeof evaluatedValue === 'number' && typeof evaluatedGoalValue === 'number' && !isNaN(evaluatedValue) && !isNaN(evaluatedGoalValue)) {
                 if (card.goal_operator === '>') isGoalMet = evaluatedValue > evaluatedGoalValue;
@@ -284,7 +284,7 @@ export default function Dashboard() {
                 if (!notifiedCardsRef.current.has(card.id)) {
                     notifiedCardsRef.current.add(card.id);
                     const nf = new Intl.NumberFormat('ko-KR');
-                    
+
                     if ('Notification' in window && Notification.permission === 'granted') {
                         new Notification(`🎯 목표 달성: ${card.title}`, {
                             body: `현재값: ${nf.format(evaluatedValue)}\n목표: ${card.goal_operator} ${nf.format(evaluatedGoalValue)}`
@@ -308,7 +308,7 @@ export default function Dashboard() {
             };
 
             if (editingCard) {
-                const updatedCards = customCards.map(c => 
+                const updatedCards = customCards.map(c =>
                     c.id === editingCard.id ? { ...c, ...payload } : c
                 );
                 await fetch('/api/dashboard/custom-cards', {
@@ -349,16 +349,16 @@ export default function Dashboard() {
     const handleDragEnd = async (event) => {
         const { active, over } = event;
         if (!over || active.id === over.id) return;
-        
+
         const oldIndex = customCards.findIndex((x) => x.id.toString() === active.id);
         const newIndex = customCards.findIndex((x) => x.id.toString() === over.id);
-        
+
         const newOrder = arrayMove(customCards, oldIndex, newIndex).map((card, index) => ({
             ...card,
             layout_order: index
         }));
         setCustomCards(newOrder);
-        
+
         try {
             await fetch('/api/dashboard/custom-cards', {
                 method: 'PUT',
@@ -438,7 +438,7 @@ export default function Dashboard() {
                                     border: 'none', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', color: isEditMode ? '#38bdf8' : '#fff', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem'
                                 }}
                             >
-                                <Settings size={16} /> 
+                                <Settings size={16} />
                                 {isEditMode ? '수정 완료' : '카드 관리'}
                             </button>
                             <button
@@ -455,7 +455,7 @@ export default function Dashboard() {
                             </button>
                         </div>
                     </div>
-                    
+
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                         <SortableContext items={customCards.map(c => c.id.toString())} strategy={rectSortingStrategy}>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
@@ -487,7 +487,7 @@ export default function Dashboard() {
 
             {(!customCards || customCards.length === 0) && (
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-40px', marginBottom: '40px' }}>
-                     <button
+                    <button
                         onClick={() => {
                             setEditingCard(null);
                             setCardForm({ title: '', formula: '', goalOperator: '', goalValue: '' });
@@ -507,7 +507,7 @@ export default function Dashboard() {
 
                 <div className="glass-panel" style={{ borderLeft: '4px solid #4f46e5' }}>
                     <h3 style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 500 }}>총 순자산 (Net Worth)</h3>
-                    <div style={{ fontSize: '2.5rem', fontWeight: 700, margin: '8px 0' }}>
+                    <div style={{ fontSize: '2.2rem', fontWeight: 700, margin: '8px 0' }}>
                         {formatCurrencyThousands(summary.netWorth)}
                     </div>
                 </div>
@@ -601,7 +601,7 @@ export default function Dashboard() {
                 <div className="glass-panel">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                         <h3 style={{ margin: 0 }}>
-                            {expenseChartPeriod === 'yearly' ? `${selectedYear}년 ` : '당월 '} 
+                            {expenseChartPeriod === 'yearly' ? `${selectedYear}년 ` : '당월 '}
                             지출 분류별 비중
                         </h3>
                         <div style={{ display: 'flex', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', padding: '4px' }}>
@@ -665,13 +665,13 @@ export default function Dashboard() {
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <div className="glass-panel" style={{ width: '400px', padding: '24px', position: 'relative', background: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px' }}>
                         <h2 style={{ margin: '0 0 16px', fontSize: '1.25rem' }}>{editingCard ? '커스텀 지표 수정' : '새 커스텀 지표 작성'}</h2>
-                        
+
                         <div style={{ marginBottom: '16px' }}>
                             <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>카드 제목</label>
-                            <input 
-                                type="text" 
+                            <input
+                                type="text"
                                 value={cardForm.title}
-                                onChange={(e) => setCardForm({...cardForm, title: e.target.value})}
+                                onChange={(e) => setCardForm({ ...cardForm, title: e.target.value })}
                                 placeholder="예: 목표 달성률"
                                 style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.3)', color: '#fff', outline: 'none' }}
                             />
@@ -681,9 +681,9 @@ export default function Dashboard() {
                             <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>
                                 계산식 (예: <span style={{ color: '#38bdf8' }}>USD_KRW * 100</span>)
                             </label>
-                            <textarea 
+                            <textarea
                                 value={cardForm.formula}
-                                onChange={(e) => setCardForm({...cardForm, formula: e.target.value})}
+                                onChange={(e) => setCardForm({ ...cardForm, formula: e.target.value })}
                                 placeholder="사용 가능 변수: NetWorth, TotalCash, Income, Expense, Investment, S_P500, KOSPI, USD_KRW, Gold, daysSince('2024-01-01')"
                                 style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.3)', color: '#fff', outline: 'none', height: '100px', resize: 'vertical' }}
                             />
@@ -692,9 +692,9 @@ export default function Dashboard() {
                         <div style={{ marginBottom: '24px', display: 'flex', gap: '12px' }}>
                             <div style={{ flex: 1 }}>
                                 <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>목표 조건</label>
-                                <select 
+                                <select
                                     value={cardForm.goalOperator}
-                                    onChange={(e) => setCardForm({...cardForm, goalOperator: e.target.value})}
+                                    onChange={(e) => setCardForm({ ...cardForm, goalOperator: e.target.value })}
                                     style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.3)', color: '#fff', outline: 'none' }}
                                 >
                                     <option value="">없음</option>
@@ -705,10 +705,10 @@ export default function Dashboard() {
                             </div>
                             <div style={{ flex: 2 }}>
                                 <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>기준 값 (수식 가능)</label>
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     value={cardForm.goalValue}
-                                    onChange={(e) => setCardForm({...cardForm, goalValue: e.target.value})}
+                                    onChange={(e) => setCardForm({ ...cardForm, goalValue: e.target.value })}
                                     placeholder="예: 228000 또는 ema('005930', 120)"
                                     style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.3)', color: '#fff', outline: 'none' }}
                                 />
@@ -716,7 +716,7 @@ export default function Dashboard() {
                         </div>
 
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                            <button 
+                            <button
                                 onClick={() => {
                                     setIsModalOpen(false);
                                     setEditingCard(null);
@@ -724,7 +724,7 @@ export default function Dashboard() {
                                 }}
                                 style={{ padding: '8px 16px', background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', borderRadius: '8px', cursor: 'pointer' }}
                             >취소</button>
-                            <button 
+                            <button
                                 onClick={handleAddOrEditCard}
                                 style={{ padding: '8px 16px', background: '#38bdf8', border: 'none', color: '#0f1115', fontWeight: 'bold', borderRadius: '8px', cursor: 'pointer' }}
                             >저장</button>
