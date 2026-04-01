@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 export default function ExpenseManagement() {
     const [transactions, setTransactions] = useState([]);
@@ -19,6 +20,7 @@ export default function ExpenseManagement() {
 
     // 동적 카테고리 상태
     const [categories, setCategories] = useState([]);
+    const [paymentMethods, setPaymentMethods] = useState([]);
 
     // 새 항목 입력 폼 상태
     const [newTx, setNewTx] = useState({
@@ -26,7 +28,7 @@ export default function ExpenseManagement() {
         store: '',
         expense: '',
         usage_category: '기타', // 분류: 쇼핑, 식비, 여가, 기타
-        period: '실행', // 상태 (예정/실행)
+        payment_method: '', // 사용: 카드, 계좌 등 결제수단
         is_fixed: '변동', // 구분 (고정/변동)
         note: ''
     });
@@ -74,6 +76,16 @@ export default function ExpenseManagement() {
             .then(data => setCategories(data))
             .catch(err => console.error(err));
 
+        fetch('/api/settings/categories?type=PAYMENT_METHOD')
+            .then(res => res.json())
+            .then(data => {
+                setPaymentMethods(data);
+                if (data.length > 0) {
+                    setNewTx(prev => ({ ...prev, payment_method: data[0].name }));
+                }
+            })
+            .catch(err => console.error(err));
+
         setEditingTxId(null);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [salaryYear, salaryMonth]);
@@ -116,7 +128,7 @@ export default function ExpenseManagement() {
             store: tx.store,
             expense: tx.expense > 0 ? new Intl.NumberFormat('ko-KR').format(tx.expense) : '',
             usage_category: tx.usage_category || '',
-            period: tx.period || '실행',
+            payment_method: tx.payment_method || paymentMethods[0]?.name || '',
             is_fixed: tx.is_fixed || '변동',
             note: tx.note || ''
         });
@@ -162,7 +174,7 @@ export default function ExpenseManagement() {
         const bulkTxs = lines.map(line => {
             // 탭 또는 콤마 분리 (엑셀 붙여넣기 대응)
             const cols = line.includes('\t') ? line.split('\t') : line.split(',');
-            const [date, store, expStr, category, isFixed, reqPeriod] = cols.map(c => c?.trim() || '');
+            const [date, store, expStr, category, isFixed, reqPaymentMethod] = cols.map(c => c?.trim() || '');
             const parsedExpense = Number(expStr?.replace(/[^0-9]/g, '')) || 0;
 
             // 날짜 포맷 맞추기 (YYYY-MM-DD) - 예: 2026.03.01 -> 2026-03-01
@@ -178,7 +190,7 @@ export default function ExpenseManagement() {
                 expense: parsedExpense,
                 usage_category: category || '기타',
                 is_fixed: isFixed || '변동',
-                period: reqPeriod || '실행'
+                payment_method: reqPaymentMethod || paymentMethods[0]?.name || '기타'
             };
         });
 
@@ -236,12 +248,36 @@ export default function ExpenseManagement() {
     // 고정비용 합계 (사용자 요청은 '변동'이었으나, 타이틀이 '고정비용'이므로 논리적 일관성을 위해 '고정'을 추출)
     const fixedExpense = transactions.filter(t => t.is_fixed === '고정').reduce((acc, t) => acc + (t.expense || 0), 0);
 
+    // 사용방법별 합계 계산
+    const paymentMethodTotals = transactions.reduce((acc, t) => {
+        // 수입 내역(수입 > 0) 혹은 지출금액이 없는 경우는 로직에서 지출만 반영한다고 가정
+        const method = t.payment_method || '기타';
+        acc[method] = (acc[method] || 0) + (t.expense || 0);
+        return acc;
+    }, {});
+    
+    const paymentMethodSummary = Object.entries(paymentMethodTotals)
+        // 지출 금액 기준 내림차순 정렬 (선택사항, 보기 좋게)
+        .sort((a, b) => b[1] - a[1])
+        .filter(([_, total]) => total > 0)
+        .map(([method, total]) => `${method} (${new Intl.NumberFormat('ko-KR').format(total)})`)
+        .join(' / ');
+
     return (
         <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                    <h1 className="text-gradient">지출 내역 관리</h1>
-                    <p style={{ color: 'var(--text-muted)' }}>카드사용 내역 기반 지출 전용 관리 및 업로드</p>
+                    <h1 className="text-gradient" style={{ marginBottom: '8px' }}>지출 내역 관리</h1>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <p style={{ color: 'var(--text-muted)', margin: 0 }}>카드사용 내역 기반 지출 전용 관리 및 업로드</p>
+                        <button
+                            className="btn btn-primary"
+                            style={{ padding: '4px 12px', fontSize: '0.85rem', background: '#ec4899', color: 'white', border: 'none', borderRadius: '6px' }}
+                            onClick={() => setIsCsvModalOpen(true)}
+                        >
+                            대용량 업로드(CSV)
+                        </button>
+                    </div>
                 </div>
 
                 <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
@@ -268,27 +304,24 @@ export default function ExpenseManagement() {
             </div>
 
 
-            <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
-                <div className="glass-panel" style={{ flex: 1, borderTop: '4px solid #ef4444', padding: '16px 24px' }}>
+            <div style={{ display: 'flex', gap: '24px', alignItems: 'stretch' }}>
+                <div className="glass-panel" style={{ flex: 1, borderTop: '4px solid #ef4444', padding: '16px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                     <span style={{ color: 'var(--text-muted)' }}>당월 지출 합계</span>
                     <div style={{ fontSize: '2rem', fontWeight: 700, color: '#ef4444' }}>
                         {new Intl.NumberFormat('ko-KR').format(totalExpense)} <span style={{ fontSize: '1rem' }}>원</span>
                     </div>
                 </div>
-                <div className="glass-panel" style={{ flex: 1, borderTop: '4px solid #f59e0b', padding: '16px 24px' }}>
+                <div className="glass-panel" style={{ flex: 1, borderTop: '4px solid #f59e0b', padding: '16px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                     <span style={{ color: 'var(--text-muted)' }}>고정비용 합계</span>
                     <div style={{ fontSize: '2rem', fontWeight: 700, color: '#f59e0b' }}>
                         {new Intl.NumberFormat('ko-KR').format(fixedExpense)} <span style={{ fontSize: '1rem' }}>원</span>
                     </div>
                 </div>
-                <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
-                    <button
-                        className="btn btn-primary"
-                        style={{ padding: '12px 24px', fontSize: '1rem', background: '#ec4899', color: 'white', border: 'none' }}
-                        onClick={() => setIsCsvModalOpen(true)}
-                    >
-                        + CSV 텍스트 대량 쓰기 (붙여넣기)
-                    </button>
+                <div className="glass-panel" style={{ flex: 1.5, borderTop: '4px solid #10b981', padding: '16px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <span style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>사용방법별 지출</span>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 600, color: '#10b981', lineHeight: '1.4', wordBreak: 'keep-all' }}>
+                        {paymentMethodSummary || '내역 없음'}
+                    </div>
                 </div>
             </div>
 
@@ -300,7 +333,7 @@ export default function ExpenseManagement() {
                             <th style={{ ...thStyle, width: '50px', textAlign: 'center' }}>요일</th>
                             <th style={{ ...thStyle, width: '220px' }}>적요 (가맹점)</th>
                             <th style={{ ...thStyle, width: '100px', textAlign: 'center' }}>분류(카테고리)</th>
-                            <th style={{ ...thStyle, width: '90px', textAlign: 'center' }}>상태</th>
+                            <th style={{ ...thStyle, width: '90px', textAlign: 'center' }}>사용</th>
                             <th style={{ ...thStyle, width: '90px', textAlign: 'center' }}>구분</th>
                             <th style={{ ...thStyle, textAlign: 'right', color: '#ef4444' }}>지출 금액</th>
                             <th style={thStyle}>비고</th>
@@ -319,8 +352,9 @@ export default function ExpenseManagement() {
                                 </select>
                             </td>
                             <td style={tdStyle}>
-                                <select value={newTx.period} onChange={e => setNewTx({ ...newTx, period: e.target.value })} style={{ ...inputStyle, padding: '8px 4px', textAlign: 'center' }}>
-                                    <option>예정</option><option>실행</option>
+                                <select value={newTx.payment_method} onChange={e => setNewTx({ ...newTx, payment_method: e.target.value })} style={{ ...inputStyle, padding: '8px 4px', textAlign: 'center' }}>
+                                    {paymentMethods.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                    {paymentMethods.length === 0 && <option value="기타">기타</option>}
                                 </select>
                             </td>
                             <td style={tdStyle}>
@@ -361,8 +395,9 @@ export default function ExpenseManagement() {
                                                 </select>
                                             </td>
                                             <td style={tdStyle}>
-                                                <select value={editForm.period} onChange={e => setEditForm({ ...editForm, period: e.target.value })} style={{ ...inputStyle, padding: '8px 4px', textAlign: 'center' }}>
-                                                    <option>예정</option><option>실행</option>
+                                                <select value={editForm.payment_method} onChange={e => setEditForm({ ...editForm, payment_method: e.target.value })} style={{ ...inputStyle, padding: '8px 4px', textAlign: 'center' }}>
+                                                    {paymentMethods.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                                    {paymentMethods.length === 0 && <option value="기타">기타</option>}
                                                 </select>
                                             </td>
                                             <td style={tdStyle}>
@@ -395,7 +430,7 @@ export default function ExpenseManagement() {
                                         <td style={{ ...tdStyle, textAlign: 'center', color: 'var(--text-muted)' }}>{getDayOfWeek(tx.date)}</td>
                                         <td style={tdStyle}>{tx.store}</td>
                                         <td style={{ ...tdStyle, textAlign: 'center', color: '#38bdf8' }}>{tx.usage_category}</td>
-                                        <td style={{ ...tdStyle, textAlign: 'center', color: tx.period === '예정' ? '#fcd34d' : '#10b981' }}>{tx.period || '실행'}</td>
+                                        <td style={{ ...tdStyle, textAlign: 'center', color: '#10b981' }}>{tx.payment_method}</td>
                                         <td style={{ ...tdStyle, textAlign: 'center', color: tx.is_fixed === '고정' ? '#f59e0b' : 'var(--text-muted)', fontWeight: tx.is_fixed === '고정' ? 600 : 400 }}>{tx.is_fixed}</td>
                                         <td style={{ ...tdStyle, textAlign: 'right', color: '#ef4444', fontWeight: 600 }}>
                                             {tx.expense > 0 ? new Intl.NumberFormat('ko-KR').format(tx.expense) : ''}
@@ -421,7 +456,7 @@ export default function ExpenseManagement() {
 
             {/* CSV 대량 업로드 모달 */}
             {
-                isCsvModalOpen && (
+                isCsvModalOpen && createPortal(
                     <div style={modalOverlayStyle}>
                         <div className="glass-panel" style={modalContentStyle}>
                             <h2>카드 사용내역 엑셀/CSV 붙여넣기</h2>
@@ -430,8 +465,8 @@ export default function ExpenseManagement() {
                             </p>
                             <div style={{ marginBottom: '16px', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px' }}>
                                 <div style={{ color: '#fcd34d', fontSize: '0.85rem', marginBottom: '8px' }}>👉 필수 열 순서 (띄어쓰기 또는 쉼표/탭 분리)</div>
-                                <code style={{ color: '#38bdf8' }}>날짜(YYYY-MM-DD), 가맹점, 지출금액, [분류], [구분(고정/변동)], [상태(실행/예정)]</code>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '4px' }}>※ 괄호[ ]는 빈 값 또는 생략 시 기본값으로 처리됩니다. (기본값: 분류=기타, 구분=변동, 상태=실행)</div>
+                                <code style={{ color: '#38bdf8' }}>날짜(YYYY-MM-DD), 가맹점, 지출금액, [분류], [구분(고정/변동)], [사용(결제수단)]</code>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '4px' }}>※ 괄호[ ]는 빈 값 또는 생략 시 기본값으로 처리됩니다. (기본값: 분류=기타, 구분=변동, 사용=기본결제수단)</div>
                             </div>
 
                             <textarea
@@ -448,7 +483,7 @@ export default function ExpenseManagement() {
                                     fontSize: '0.9rem',
                                     resize: 'vertical'
                                 }}
-                                placeholder={`복사한 데이터를 여기에 붙여넣으세요...\n예시:\n2026-03-01, 쿠팡, 54000, 쇼핑, 변동, 실행\n2026-03-02, 스타벅스, 4500, 외식`}
+                                placeholder={`복사한 데이터를 여기에 붙여넣으세요...\n예시:\n2026-03-01, 쿠팡, 54000, 쇼핑, 변동, 토카\n2026-03-02, 스타벅스, 4500, 외식`}
                                 value={csvText}
                                 onChange={(e) => setCsvText(e.target.value)}
                             />
@@ -458,7 +493,8 @@ export default function ExpenseManagement() {
                                 <button onClick={handleCsvSubmit} style={{ background: '#ec4899', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>대량 변환 및 저장</button>
                             </div>
                         </div>
-                    </div>
+                    </div>,
+                    document.body
                 )}
         </div>
     );

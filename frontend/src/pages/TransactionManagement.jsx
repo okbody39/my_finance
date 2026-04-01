@@ -256,7 +256,7 @@ export default function TransactionManagement() {
                         </div>
                     )}
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '12px 24px', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>기준월 (20일~19일)</span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>기준월</span>
                         <select value={salaryYear} onChange={e => setSalaryYear(Number(e.target.value))} style={selectStyle}>
                             {[2024, 2025, 2026, 2027, 2028].map(y => <option key={y} value={y}>{y}년</option>)}
                         </select>

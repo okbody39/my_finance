@@ -67,9 +67,9 @@ router.post('/auto-fill', (req, res) => {
                         let newDateStr = sourceDate.toISOString().split('T')[0];
 
                         db.prepare(`
-                            INSERT INTO transactions (date, store, account_id, income, expense, note, period, is_fixed, usage_category, is_auto_synced) 
-                            VALUES (?, ?, ?, ?, ?, ?, '예정', '고정', ?, 0)
-                        `).run(newDateStr, tx.store, account_id, tx.income, tx.expense, tx.note, tx.usage_category);
+                            INSERT INTO transactions (date, store, account_id, income, expense, note, period, is_fixed, usage_category, payment_method, is_auto_synced) 
+                            VALUES (?, ?, ?, ?, ?, ?, '예정', '고정', ?, ?, 0)
+                        `).run(newDateStr, tx.store, account_id, tx.income, tx.expense, tx.note, tx.usage_category, tx.payment_method);
                     }
                 }
             }
@@ -83,11 +83,11 @@ router.post('/auto-fill', (req, res) => {
 
 // 2. 새로운 입출금 내역 추가 (수동 입력)
 router.post('/', (req, res) => {
-    const { date, store, account_id, income, expense, note, period, is_fixed, usage_category } = req.body;
+    const { date, store, account_id, income, expense, note, period, is_fixed, usage_category, payment_method } = req.body;
     try {
         const stmt = db.prepare(`
-      INSERT INTO transactions (date, store, account_id, income, expense, note, period, is_fixed, usage_category, is_auto_synced) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+      INSERT INTO transactions (date, store, account_id, income, expense, note, period, is_fixed, usage_category, payment_method, is_auto_synced) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
     `);
 
         // Convert to integers/null safely
@@ -96,7 +96,7 @@ router.post('/', (req, res) => {
         const accId = account_id ? parseInt(account_id, 10) : null;
         const txPeriod = period || '실행';
 
-        const info = stmt.run(date, store || '', accId, inc, exp, note || '', txPeriod, is_fixed || '', usage_category || '');
+        const info = stmt.run(date, store || '', accId, inc, exp, note || '', txPeriod, is_fixed || '', usage_category || '', payment_method || '');
 
         // 계좌 잔액 업데이트 ('실행' 상태일 때만)
         if (accId && txPeriod === '실행') {
@@ -118,7 +118,7 @@ router.post('/', (req, res) => {
 // 3. 입출금 내역 수정
 router.put('/:id', (req, res) => {
     const { id } = req.params;
-    const { date, store, income, expense, note, period, is_fixed, usage_category } = req.body;
+    const { date, store, income, expense, note, period, is_fixed, usage_category, payment_method } = req.body;
 
     try {
         // 기존 내역 조회
@@ -144,10 +144,10 @@ router.put('/:id', (req, res) => {
         // 2) 트랜잭션 업데이트
         const updateStmt = db.prepare(`
             UPDATE transactions 
-            SET date = ?, store = ?, income = ?, expense = ?, note = ?, period = ?, is_fixed = ?, usage_category = ?
+            SET date = ?, store = ?, income = ?, expense = ?, note = ?, period = ?, is_fixed = ?, usage_category = ?, payment_method = ?
             WHERE id = ?
         `);
-        updateStmt.run(date, store || '', newInc, newExp, note || '', txPeriod, is_fixed || '', usage_category || '', id);
+        updateStmt.run(date, store || '', newInc, newExp, note || '', txPeriod, is_fixed || '', usage_category || '', payment_method || '', id);
 
         // 3) 새로운 내역이 '실행' 상태라면 계좌 잔액에 다시 반영
         if (oldTx.account_id && txPeriod === '실행') {
@@ -200,8 +200,8 @@ router.post('/bulk-csv', (req, res) => {
 
     try {
         const stmt = db.prepare(`
-            INSERT INTO transactions (date, store, account_id, income, expense, note, period, is_fixed, usage_category, is_auto_synced) 
-            VALUES (?, ?, ?, 0, ?, '', ?, ?, ?, 0)
+            INSERT INTO transactions (date, store, account_id, income, expense, note, period, is_fixed, usage_category, payment_method, is_auto_synced) 
+            VALUES (?, ?, ?, 0, ?, '', ?, ?, ?, ?, 0)
         `);
 
         const insertMany = db.transaction((txs) => {
@@ -215,7 +215,8 @@ router.post('/bulk-csv', (req, res) => {
                     exp,
                     tx.period || '실행',
                     tx.is_fixed || '변동',
-                    tx.usage_category || '기타'
+                    tx.usage_category || '기타',
+                    tx.payment_method || ''
                 );
 
                 if (tx.period === '실행' && exp > 0) {

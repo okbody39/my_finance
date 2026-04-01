@@ -92,9 +92,11 @@ const CategoryList = ({ title, data, type, newValue, setNewValue, onAdd, onDelet
 export default function SystemSettings() {
     const [expenseCategories, setExpenseCategories] = useState([]);
     const [investmentCategories, setInvestmentCategories] = useState([]);
+    const [paymentMethods, setPaymentMethods] = useState([]);
 
     const [newExpenseCat, setNewExpenseCat] = useState('');
     const [newInvestmentCat, setNewInvestmentCat] = useState('');
+    const [newPaymentMethod, setNewPaymentMethod] = useState('');
 
     const fetchCategories = async () => {
         try {
@@ -105,6 +107,10 @@ export default function SystemSettings() {
             const invRes = await fetch('/api/settings/categories?type=INVESTMENT');
             const invData = await invRes.json();
             setInvestmentCategories(invData);
+
+            const payRes = await fetch('/api/settings/categories?type=PAYMENT_METHOD');
+            const payData = await payRes.json();
+            setPaymentMethods(payData);
         } catch (error) {
             console.error("카테고리 불러오기 실패:", error);
         }
@@ -154,7 +160,8 @@ export default function SystemSettings() {
     const handleReorderCategory = async (type, newItems) => {
         // Optimistic UI Update
         if (type === 'EXPENSE') setExpenseCategories(newItems);
-        else setInvestmentCategories(newItems);
+        else if (type === 'INVESTMENT') setInvestmentCategories(newItems);
+        else if (type === 'PAYMENT_METHOD') setPaymentMethods(newItems);
 
         // Prepare items array for backend (id, new sort_order)
         const payload = newItems.map((item, index) => ({
@@ -203,6 +210,16 @@ export default function SystemSettings() {
                     type="INVESTMENT"
                     newValue={newInvestmentCat}
                     setNewValue={setNewInvestmentCat}
+                    onAdd={handleAddCategory}
+                    onDelete={handleDeleteCategory}
+                    onReorder={handleReorderCategory}
+                />
+                <CategoryList
+                    title="결제수단 (사용) 분류"
+                    data={paymentMethods}
+                    type="PAYMENT_METHOD"
+                    newValue={newPaymentMethod}
+                    setNewValue={setNewPaymentMethod}
                     onAdd={handleAddCategory}
                     onDelete={handleDeleteCategory}
                     onReorder={handleReorderCategory}
