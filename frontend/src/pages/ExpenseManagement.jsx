@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { evaluate } from 'mathjs';
 
 export default function ExpenseManagement() {
     const [transactions, setTransactions] = useState([]);
@@ -97,7 +98,19 @@ export default function ExpenseManagement() {
             return;
         }
 
-        const parsedExpense = Number(String(newTx.expense).replace(/,/g, '')) || 0;
+        const parseAmountWithFormula = (val) => {
+            const str = String(val).replace(/,/g, '').trim();
+            if (str.startsWith('=')) {
+                try {
+                    return Math.floor(evaluate(str.substring(1))) || 0;
+                } catch {
+                    return 0;
+                }
+            }
+            return Number(str) || 0;
+        };
+
+        const parsedExpense = parseAmountWithFormula(newTx.expense);
         if (parsedExpense <= 0) {
             alert("지출 금액을 입력해주세요.");
             return;
@@ -135,7 +148,19 @@ export default function ExpenseManagement() {
     };
 
     const handleEditSave = async (id) => {
-        const parsedExpense = Number(String(editForm.expense).replace(/,/g, '')) || 0;
+        const parseAmountWithFormula = (val) => {
+            const str = String(val).replace(/,/g, '').trim();
+            if (str.startsWith('=')) {
+                try {
+                    return Math.floor(evaluate(str.substring(1))) || 0;
+                } catch {
+                    return 0;
+                }
+            }
+            return Number(str) || 0;
+        };
+
+        const parsedExpense = parseAmountWithFormula(editForm.expense);
         try {
             await fetch(`/api/transactions/${id}`, {
                 method: 'PUT',
@@ -226,16 +251,26 @@ export default function ExpenseManagement() {
     };
 
     const handleNumberChange = (e, field) => {
-        const rawValue = e.target.value.replace(/,/g, '');
-        if (!isNaN(rawValue)) {
+        const val = e.target.value;
+        if (val.startsWith('=')) {
+            setNewTx({ ...newTx, [field]: val });
+            return;
+        }
+        const rawValue = val.replace(/,/g, '');
+        if (!isNaN(rawValue) || rawValue === '-' || rawValue === '.') {
             const formattedValue = rawValue === '' ? '' : new Intl.NumberFormat('ko-KR').format(rawValue);
             setNewTx({ ...newTx, [field]: formattedValue });
         }
     };
 
     const handleEditNumberChange = (e, field) => {
-        const rawValue = e.target.value.replace(/,/g, '');
-        if (!isNaN(rawValue)) {
+        const val = e.target.value;
+        if (val.startsWith('=')) {
+            setEditForm({ ...editForm, [field]: val });
+            return;
+        }
+        const rawValue = val.replace(/,/g, '');
+        if (!isNaN(rawValue) || rawValue === '-' || rawValue === '.') {
             const formattedValue = rawValue === '' ? '' : new Intl.NumberFormat('ko-KR').format(rawValue);
             setEditForm({ ...editForm, [field]: formattedValue });
         }

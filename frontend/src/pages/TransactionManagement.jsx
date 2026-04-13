@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { evaluate } from 'mathjs';
 
 export default function TransactionManagement() {
     const [accounts, setAccounts] = useState([]);
@@ -104,8 +105,20 @@ export default function TransactionManagement() {
             return;
         }
 
-        const parsedIncome = Number(String(newTx.income).replace(/,/g, '')) || 0;
-        const parsedExpense = Number(String(newTx.expense).replace(/,/g, '')) || 0;
+        const parseAmountWithFormula = (val) => {
+            const str = String(val).replace(/,/g, '').trim();
+            if (str.startsWith('=')) {
+                try {
+                    return Math.floor(evaluate(str.substring(1))) || 0;
+                } catch {
+                    return 0;
+                }
+            }
+            return Number(str) || 0;
+        };
+
+        const parsedIncome = parseAmountWithFormula(newTx.income);
+        const parsedExpense = parseAmountWithFormula(newTx.expense);
 
         try {
             await fetch('/api/transactions', {
@@ -148,8 +161,20 @@ export default function TransactionManagement() {
 
     // 항목 수정 저장
     const handleEditSave = async (id) => {
-        const parsedIncome = Number(String(editForm.income).replace(/,/g, '')) || 0;
-        const parsedExpense = Number(String(editForm.expense).replace(/,/g, '')) || 0;
+        const parseAmountWithFormula = (val) => {
+            const str = String(val).replace(/,/g, '').trim();
+            if (str.startsWith('=')) {
+                try {
+                    return Math.floor(evaluate(str.substring(1))) || 0;
+                } catch {
+                    return 0;
+                }
+            }
+            return Number(str) || 0;
+        };
+
+        const parsedIncome = parseAmountWithFormula(editForm.income);
+        const parsedExpense = parseAmountWithFormula(editForm.expense);
 
         try {
             await fetch(`/api/transactions/${id}`, {
@@ -195,8 +220,13 @@ export default function TransactionManagement() {
 
     // 콤마 입력 핸들러 (새 항목용)
     const handleNumberChange = (e, field) => {
-        const rawValue = e.target.value.replace(/,/g, '');
-        if (!isNaN(rawValue)) {
+        const val = e.target.value;
+        if (val.startsWith('=')) {
+            setNewTx({ ...newTx, [field]: val });
+            return;
+        }
+        const rawValue = val.replace(/,/g, '');
+        if (!isNaN(rawValue) || rawValue === '-' || rawValue === '.') {
             const formattedValue = rawValue === '' ? '' : new Intl.NumberFormat('ko-KR').format(rawValue);
             setNewTx({ ...newTx, [field]: formattedValue });
         }
@@ -204,8 +234,13 @@ export default function TransactionManagement() {
 
     // 콤마 입력 핸들러 (수정용)
     const handleEditNumberChange = (e, field) => {
-        const rawValue = e.target.value.replace(/,/g, '');
-        if (!isNaN(rawValue)) {
+        const val = e.target.value;
+        if (val.startsWith('=')) {
+            setEditForm({ ...editForm, [field]: val });
+            return;
+        }
+        const rawValue = val.replace(/,/g, '');
+        if (!isNaN(rawValue) || rawValue === '-' || rawValue === '.') {
             const formattedValue = rawValue === '' ? '' : new Intl.NumberFormat('ko-KR').format(rawValue);
             setEditForm({ ...editForm, [field]: formattedValue });
         }

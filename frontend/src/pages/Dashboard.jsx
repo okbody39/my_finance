@@ -26,6 +26,7 @@ export default function Dashboard() {
     });
     const [marketData, setMarketData] = useState([]);
     const [expenseChartPeriod, setExpenseChartPeriod] = useState('yearly');
+    const [excludeRealEstate, setExcludeRealEstate] = useState(false);
 
     // Custom Cards state
     const [customCards, setCustomCards] = useState([]);
@@ -155,15 +156,20 @@ export default function Dashboard() {
     const formatCurrency = (val) => new Intl.NumberFormat('ko-KR').format(val) + '원';
     const formatCurrencyThousands = (val) => new Intl.NumberFormat('ko-KR').format(Math.floor((val || 0) / 1000)) + '천원';
 
-    const assetData = [
+    const assetDataRaw = [
         { name: '현금 및 연동계좌', value: summary.totalCash || 0 },
         ...(summary.investmentDetails || [])
     ].filter(item => item.value > 0);
+    const assetData = excludeRealEstate 
+        ? assetDataRaw.filter(item => !item.name.includes('부동산')) 
+        : assetDataRaw;
+    const totalAssetValue = assetData.reduce((sum, item) => sum + item.value, 0);
 
     const rawExpenseData = expenseChartPeriod === 'yearly'
         ? (summary.expenseDetails || [])
         : (summary.monthlyExpenseDetails || []);
     const expenseData = rawExpenseData.filter(item => item.value > 0);
+    const totalExpenseCategoryValue = expenseData.reduce((sum, item) => sum + item.value, 0);
 
     const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4'];
     const EXPENSE_COLORS = ['#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#06b6d4', '#3b82f6'];
@@ -567,7 +573,21 @@ export default function Dashboard() {
             {/* Lower Section (Pie Charts) */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                 <div className="glass-panel">
-                    <h3 style={{ marginBottom: '16px' }}>자산 포트폴리오 비중</h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                        <h3 style={{ margin: 0 }}>자산 포트폴리오 비중</h3>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.85rem', cursor: 'pointer' }}>
+                            <input 
+                                type="checkbox" 
+                                checked={excludeRealEstate} 
+                                onChange={(e) => setExcludeRealEstate(e.target.checked)} 
+                            />
+                            부동산 제외
+                        </label>
+                    </div>
+                    <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>차트 총액: </span>
+                        <span style={{ fontSize: '1.2rem', fontWeight: 700, color: '#f8fafc' }}>{formatCurrency(totalAssetValue)}</span>
+                    </div>
                     <div style={{ height: '300px' }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
@@ -622,6 +642,10 @@ export default function Dashboard() {
                                 }}
                             >당월</button>
                         </div>
+                    </div>
+                    <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>차트 총액: </span>
+                        <span style={{ fontSize: '1.2rem', fontWeight: 700, color: '#ef4444' }}>{formatCurrency(totalExpenseCategoryValue)}</span>
                     </div>
                     {expenseData.length === 0 ? (
                         <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
