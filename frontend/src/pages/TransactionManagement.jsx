@@ -83,19 +83,34 @@ export default function TransactionManagement() {
     }, []);
 
     useEffect(() => {
-        if (selectedAccountId) {
-            fetch('/api/transactions/auto-fill', {
+        fetchTransactions();
+        setEditingTxId(null);
+    }, [selectedAccountId, salaryYear, salaryMonth]);
+
+    const handleCopyPreviousMonth = async () => {
+        if (!selectedAccountId) {
+            alert("조회 계좌를 선택해주세요.");
+            return;
+        }
+        try {
+            const res = await fetch('/api/transactions/auto-fill', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ account_id: selectedAccountId, year: salaryYear, month: salaryMonth })
-            }).then(() => {
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert("전월 내역(고정)이 복사되었습니다. (이미 존재하는 내역은 제외)");
                 fetchTransactions();
-            }).catch(console.error);
-        } else {
-            fetchTransactions();
+                fetchAccounts();
+            } else {
+                alert("복사에 실패했습니다.");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("복사 중 오류가 발생했습니다.");
         }
-        setEditingTxId(null);
-    }, [selectedAccountId, salaryYear, salaryMonth]);
+    };
 
     // 항목 추가
     const handleAdd = async (e) => {
@@ -252,6 +267,7 @@ export default function TransactionManagement() {
     // 잔액 계산 로직 (해당 월 기준 합산)
     let currentBalance = 0;
     let plannedBalance = 0;
+    let totalInvestment = 0;
 
     if (selectedAccountInfo) {
         // 화면에 표시된 내역(transactions) 기준 '실행' 내역 합산
@@ -267,6 +283,10 @@ export default function TransactionManagement() {
         const plannedExpenseSum = plannedTxs.reduce((acc, t) => acc + (t.expense || 0), 0);
 
         plannedBalance = currentBalance + plannedIncomeSum - plannedExpenseSum;
+
+        totalInvestment = transactions
+            .filter(t => t.store.includes('투자') || t.usage_category === '투자')
+            .reduce((acc, t) => acc + (t.expense || 0), 0);
     }
 
     return (
@@ -322,6 +342,12 @@ export default function TransactionManagement() {
                         <span style={{ color: 'var(--text-muted)' }}>현재 잔액 (실행 합산)</span>
                         <div style={{ fontSize: '2rem', fontWeight: 700 }}>
                             {new Intl.NumberFormat('ko-KR').format(currentBalance)} <span style={{ fontSize: '1rem' }}>원</span>
+                        </div>
+                    </div>
+                    <div className="glass-panel" style={{ flex: 1, borderTop: '4px solid #3b82f6', padding: '16px 24px' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>당월 투자금</span>
+                        <div style={{ fontSize: '2rem', fontWeight: 700, color: '#93c5fd' }}>
+                            {new Intl.NumberFormat('ko-KR').format(totalInvestment)} <span style={{ fontSize: '1rem' }}>원</span>
                         </div>
                     </div>
                     <div className="glass-panel" style={{ flex: 1, borderTop: '4px solid #fcd34d', padding: '16px 24px' }}>
@@ -459,7 +485,7 @@ export default function TransactionManagement() {
                                             {tx.income > 0 ? new Intl.NumberFormat('ko-KR').format(tx.income) : ''}
                                         </td>
 
-                                        <td style={{ ...tdStyle, textAlign: 'right', background: tx.expense > 0 ? 'rgba(239, 68, 68, 0.05)' : 'transparent', color: tx.expense > 0 ? '#ef4444' : 'inherit', fontWeight: tx.expense > 0 ? 600 : 'normal' }}>
+                                        <td style={{ ...tdStyle, textAlign: 'right', background: tx.expense > 0 ? (tx.store.includes('투자') ? 'rgba(56, 189, 248, 0.1)' : 'rgba(239, 68, 68, 0.05)') : 'transparent', color: tx.expense > 0 ? (tx.store.includes('투자') ? '#38bdf8' : '#ef4444') : 'inherit', fontWeight: tx.expense > 0 ? 600 : 'normal' }}>
                                             {tx.expense > 0 ? new Intl.NumberFormat('ko-KR').format(tx.expense) : ''}
                                         </td>
 
@@ -475,7 +501,18 @@ export default function TransactionManagement() {
                             })}
                         {selectedAccountId !== '' && transactions.filter(tx => tx.store.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
                             <tr>
-                                <td colSpan={9} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>내역이 없습니다.</td>
+                                <td colSpan={9} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                                    <div style={{ marginBottom: transactions.length === 0 ? '16px' : '0' }}>리스트 항목이 없습니다.</div>
+                                    {transactions.length === 0 && (
+                                        <button
+                                            className="btn btn-primary"
+                                            onClick={handleCopyPreviousMonth}
+                                            style={{ background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', padding: '10px 20px', borderRadius: '8px', border: '1px solid currentColor', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold' }}
+                                        >
+                                            전월 내역 복사
+                                        </button>
+                                    )}
+                                </td>
                             </tr>
                         )}
                     </tbody>
