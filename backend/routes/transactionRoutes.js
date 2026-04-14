@@ -24,7 +24,7 @@ router.post('/auto-fill', (req, res) => {
     if (!account_id || !year || !month) return res.json({ success: false });
 
     try {
-        for (let offset = 0; offset <= 2; offset++) {
+        for (let offset = 0; offset <= 0; offset++) {
             let targetM = month + offset;
             let targetY = year;
             while (targetM > 12) {
