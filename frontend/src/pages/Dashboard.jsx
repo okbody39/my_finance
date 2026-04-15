@@ -4,7 +4,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, B
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, rectSortingStrategy } from '@dnd-kit/sortable';
 import { evaluate } from 'mathjs';
-import { Plus, Settings } from 'lucide-react';
+import { Plus, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
 import { SortableCustomCard } from '../components/SortableCustomCard';
 
 export default function Dashboard() {
@@ -27,6 +27,11 @@ export default function Dashboard() {
     const [marketData, setMarketData] = useState([]);
     const [expenseChartPeriod, setExpenseChartPeriod] = useState('yearly');
     const [excludeRealEstate, setExcludeRealEstate] = useState(false);
+
+    // Calendar state
+    const [calendarDate, setCalendarDate] = useState(new Date());
+    const [allTransactions, setAllTransactions] = useState([]);
+    const [selectedDateDetails, setSelectedDateDetails] = useState(null);
 
     // Custom Cards state
     const [customCards, setCustomCards] = useState([]);
@@ -67,6 +72,11 @@ export default function Dashboard() {
                 .then(res => res.json())
                 .then(data => setCustomCards(data))
                 .catch(err => console.error('Failed to fetch custom cards:', err));
+
+            fetch(`/api/transactions`)
+                .then(res => res.json())
+                .then(data => setAllTransactions(data))
+                .catch(err => console.error('Failed to fetch transactions:', err));
         };
 
         fetchData();
@@ -376,6 +386,37 @@ export default function Dashboard() {
         }
     };
 
+    // Calendar logic
+    const handlePrevMonth = () => {
+        setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() - 1, 1));
+    };
+
+    const handleNextMonth = () => {
+        setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 1));
+    };
+
+    const generateCalendarGrid = () => {
+        const year = calendarDate.getFullYear();
+        const month = calendarDate.getMonth();
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        const grid = [];
+        for (let i = 0; i < firstDay; i++) {
+            grid.push(null);
+        }
+        for (let i = 1; i <= daysInMonth; i++) {
+            grid.push(i);
+        }
+        return grid;
+    };
+
+    const getTransactionsForDate = (day) => {
+        if (!day) return [];
+        const targetDate = `${calendarDate.getFullYear()}-${String(calendarDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        return allTransactions.filter(t => t.date.startsWith(targetDate));
+    };
+
     return (
         <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
@@ -683,6 +724,109 @@ export default function Dashboard() {
                     )}
                 </div>
             </div>
+
+            {/* Calendar Section */}
+            <div className="glass-panel" style={{ padding: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <h3 style={{ margin: 0 }}>월별 입출금 현황 달력</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <button 
+                            onClick={handlePrevMonth}
+                            style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', padding: '8px', display: 'flex', cursor: 'pointer', color: '#fff' }}
+                        >
+                            <ChevronLeft size={20} />
+                        </button>
+                        <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
+                            {calendarDate.getFullYear()}년 {calendarDate.getMonth() + 1}월
+                        </span>
+                        <button 
+                            onClick={handleNextMonth}
+                            style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', padding: '8px', display: 'flex', cursor: 'pointer', color: '#fff' }}
+                        >
+                            <ChevronRight size={20} />
+                        </button>
+                    </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px', marginBottom: '8px' }}>
+                    {['일', '월', '화', '수', '목', '금', '토'].map(d => (
+                        <div key={d} style={{ textAlign: 'center', fontWeight: 'bold', color: 'var(--text-muted)' }}>{d}</div>
+                    ))}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px' }}>
+                    {generateCalendarGrid().map((day, idx) => {
+                        const dayTxs = getTransactionsForDate(day);
+                        const dailyIncome = dayTxs.reduce((acc, t) => acc + (t.income || 0), 0);
+                        const dailyExpense = dayTxs.reduce((acc, t) => acc + (t.expense || 0), 0);
+                        const isToday = day === new Date().getDate() && calendarDate.getMonth() === new Date().getMonth() && calendarDate.getFullYear() === new Date().getFullYear();
+
+                        return (
+                            <div key={idx} 
+                                onClick={() => day ? setSelectedDateDetails({ day, txs: dayTxs }) : null}
+                                style={{ 
+                                background: isToday ? 'rgba(56, 189, 248, 0.1)' : 'rgba(0,0,0,0.3)',
+                                border: isToday ? '1px solid rgba(56, 189, 248, 0.5)' : '1px solid rgba(255,255,255,0.05)',
+                                borderRadius: '8px', 
+                                minHeight: '100px', 
+                                padding: '8px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                cursor: day ? 'pointer' : 'default'
+                            }}>
+                                {day && (
+                                    <>
+                                        <div style={{ fontWeight: 'bold', color: isToday ? '#38bdf8' : '#e2e8f0' }}>{day}</div>
+                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: '4px', marginTop: '8px' }}>
+                                            {dailyIncome > 0 && <div style={{ fontSize: '0.8rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 6px', borderRadius: '4px', textAlign: 'right' }}>+{formatCurrencyThousands(dailyIncome)}</div>}
+                                            {dailyExpense > 0 && <div style={{ fontSize: '0.8rem', color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', padding: '2px 6px', borderRadius: '4px', textAlign: 'right' }}>-{formatCurrencyThousands(dailyExpense)}</div>}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Date Details Modal */}
+            {selectedDateDetails && createPortal(
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div className="glass-panel" style={{ width: '500px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', padding: '24px', position: 'relative', background: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                            <h2 style={{ margin: 0, fontSize: '1.25rem' }}>{calendarDate.getFullYear()}년 {calendarDate.getMonth() + 1}월 {selectedDateDetails.day}일 상세내역</h2>
+                            <button onClick={() => setSelectedDateDetails(null)} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1 }}>&times;</button>
+                        </div>
+                        <div style={{ overflowY: 'auto', flex: 1, paddingRight: '12px' }}>
+                            {selectedDateDetails.txs.length === 0 ? (
+                                <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '32px 0' }}>거래 내역이 없습니다.</div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {selectedDateDetails.txs.map(tx => (
+                                        <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ fontWeight: 600, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    {tx.period === '예정' && <span style={{ fontSize: '0.75rem', background: 'rgba(252, 211, 77, 0.2)', color: '#fcd34d', padding: '2px 6px', borderRadius: '4px' }}>예정</span>}
+                                                    {tx.store}
+                                                </div>
+                                                {tx.note && <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>{tx.note}</div>}
+                                            </div>
+                                            <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end', minWidth: '100px' }}>
+                                                {tx.income > 0 && <span style={{ color: '#10b981', fontWeight: 600, fontSize: '0.95rem' }}>+{new Intl.NumberFormat('ko-KR').format(tx.income)}원</span>}
+                                                {tx.expense > 0 && <span style={{ color: '#ef4444', fontWeight: 600, fontSize: '0.95rem' }}>-{new Intl.NumberFormat('ko-KR').format(tx.expense)}원</span>}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
+                            <button onClick={() => setSelectedDateDetails(null)} style={{ padding: '8px 16px', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>닫기</button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
 
             {/* Custom Card Modal */}
             {isModalOpen && createPortal(
