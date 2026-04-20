@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 export default function AccountManagement() {
     const [accounts, setAccounts] = useState([]);
-    const [newAcc, setNewAcc] = useState({ purpose: '', bank_name: '', account_number: '', password: '', balance: '', include_in_stats: true });
+    const [newAcc, setNewAcc] = useState({ purpose: '', bank_name: '', account_number: '', password: '', include_in_stats: true });
 
     // 수정 모드 상태
     const [editingAccId, setEditingAccId] = useState(null);
@@ -32,11 +32,10 @@ export default function AccountManagement() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     ...newAcc,
-                    balance: Number(newAcc.balance) || 0,
                     include_in_stats: newAcc.include_in_stats ? 1 : 0
                 })
             });
-            setNewAcc({ purpose: '', bank_name: '', account_number: '', password: '', balance: '', include_in_stats: true });
+            setNewAcc({ purpose: '', bank_name: '', account_number: '', password: '', include_in_stats: true });
             fetchAccounts();
         } catch (e) {
             console.error(e);
@@ -50,7 +49,6 @@ export default function AccountManagement() {
             bank_name: acc.bank_name,
             account_number: acc.account_number || '',
             password: acc.password || '',
-            balance: acc.balance || 0,
             include_in_stats: acc.include_in_stats === 1 || acc.include_in_stats === true
         });
     };
@@ -62,7 +60,6 @@ export default function AccountManagement() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     ...editForm,
-                    balance: Number(editForm.balance) || 0,
                     include_in_stats: editForm.include_in_stats ? 1 : 0
                 })
             });
@@ -116,10 +113,7 @@ export default function AccountManagement() {
                             <label style={labelStyle}>비밀번호 (로컬저장)</label>
                             <input type="password" style={inputStyle} value={newAcc.password} onChange={e => setNewAcc({ ...newAcc, password: e.target.value })} placeholder="비밀번호" />
                         </div>
-                        <div>
-                            <label style={labelStyle}>초기 잔액 (원)</label>
-                            <input type="number" style={inputStyle} value={newAcc.balance} onChange={e => setNewAcc({ ...newAcc, balance: e.target.value })} placeholder="현재 잔액" />
-                        </div>
+
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <input
                                 type="checkbox"
@@ -162,10 +156,7 @@ export default function AccountManagement() {
                                                     <label style={labelStyle}>계좌번호</label>
                                                     <input type="text" style={inputStyle} value={editForm.account_number} onChange={e => setEditForm({ ...editForm, account_number: e.target.value })} />
                                                 </div>
-                                                <div>
-                                                    <label style={labelStyle}>잔액</label>
-                                                    <input type="number" style={inputStyle} value={editForm.balance} onChange={e => setEditForm({ ...editForm, balance: e.target.value })} />
-                                                </div>
+
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                     <input
                                                         type="checkbox"
@@ -201,9 +192,7 @@ export default function AccountManagement() {
                                             <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
                                                 {acc.account_number || '-'}
                                             </div>
-                                            <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#10b981', marginBottom: '16px' }}>
-                                                {new Intl.NumberFormat('ko-KR').format(acc.balance)} 원
-                                            </div>
+
                                             <div style={{
                                                 display: 'flex',
                                                 gap: '12px',

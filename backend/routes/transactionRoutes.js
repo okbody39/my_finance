@@ -98,16 +98,6 @@ router.post('/', (req, res) => {
 
         const info = stmt.run(date, store || '', accId, inc, exp, note || '', txPeriod, is_fixed || '', usage_category || '', payment_method || '');
 
-        // 계좌 잔액 업데이트 ('실행' 상태일 때만)
-        if (accId && txPeriod === '실행') {
-            if (exp > 0) {
-                db.prepare('UPDATE accounts SET balance = balance - ? WHERE id = ?').run(exp, accId);
-            }
-            if (inc > 0) {
-                db.prepare('UPDATE accounts SET balance = balance + ? WHERE id = ?').run(inc, accId);
-            }
-        }
-
         res.json({ success: true, id: info.lastInsertRowid });
     } catch (error) {
         console.error('Error adding transaction:', error);
@@ -131,16 +121,6 @@ router.put('/:id', (req, res) => {
         const newExp = expense ? parseInt(expense, 10) : 0;
         const txPeriod = period || '실행';
 
-        // 1) 기존 내역이 '실행' 상태였다면 계좌 잔액에서 롤백
-        if (oldTx.account_id && oldTx.period === '실행') {
-            if (oldTx.expense > 0) {
-                db.prepare('UPDATE accounts SET balance = balance + ? WHERE id = ?').run(oldTx.expense, oldTx.account_id);
-            }
-            if (oldTx.income > 0) {
-                db.prepare('UPDATE accounts SET balance = balance - ? WHERE id = ?').run(oldTx.income, oldTx.account_id);
-            }
-        }
-
         // 2) 트랜잭션 업데이트
         const updateStmt = db.prepare(`
             UPDATE transactions 
@@ -148,16 +128,6 @@ router.put('/:id', (req, res) => {
             WHERE id = ?
         `);
         updateStmt.run(date, store || '', newInc, newExp, note || '', txPeriod, is_fixed || '', usage_category || '', payment_method || '', id);
-
-        // 3) 새로운 내역이 '실행' 상태라면 계좌 잔액에 다시 반영
-        if (oldTx.account_id && txPeriod === '실행') {
-            if (newExp > 0) {
-                db.prepare('UPDATE accounts SET balance = balance - ? WHERE id = ?').run(newExp, oldTx.account_id);
-            }
-            if (newInc > 0) {
-                db.prepare('UPDATE accounts SET balance = balance + ? WHERE id = ?').run(newInc, oldTx.account_id);
-            }
-        }
 
         res.json({ success: true, message: 'Transaction updated' });
     } catch (error) {
@@ -170,17 +140,6 @@ router.put('/:id', (req, res) => {
 router.delete('/:id', (req, res) => {
     const { id } = req.params;
     try {
-        // 삭제 전 잔액 롤백 시도 ('실행' 상태였을 경우에만)
-        const tx = db.prepare('SELECT income, expense, account_id, period FROM transactions WHERE id = ?').get(id);
-        if (tx && tx.account_id && tx.period === '실행') {
-            if (tx.expense > 0) {
-                db.prepare('UPDATE accounts SET balance = balance + ? WHERE id = ?').run(tx.expense, tx.account_id);
-            }
-            if (tx.income > 0) {
-                db.prepare('UPDATE accounts SET balance = balance - ? WHERE id = ?').run(tx.income, tx.account_id);
-            }
-        }
-
         const stmt = db.prepare('DELETE FROM transactions WHERE id = ?');
         stmt.run(id);
         res.json({ success: true, message: 'Transaction deleted' });
@@ -227,10 +186,6 @@ router.post('/bulk-csv', (req, res) => {
         });
 
         const totalExpense = insertMany(transactions);
-
-        if (accId && totalExpense > 0) {
-            db.prepare('UPDATE accounts SET balance = balance - ? WHERE id = ?').run(totalExpense, accId);
-        }
 
         res.json({ success: true, count: transactions.length });
     } catch (error) {

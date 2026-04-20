@@ -7,8 +7,13 @@ router.get('/summary', (req, res) => {
     try {
         const targetYear = req.query.year || new Date().getFullYear();
 
-        // 1-1. 현금성 자산 (통장 잔액 합산)
-        const cashResult = db.prepare("SELECT SUM(balance) as total_cash FROM accounts WHERE include_in_stats = 1").get();
+        // 1-1. 현금성 자산 (트랜잭션 기반 동적 계산)
+        const cashResult = db.prepare(`
+            SELECT SUM(t.income - t.expense) as total_cash 
+            FROM transactions t 
+            LEFT JOIN accounts a ON t.account_id = a.id 
+            WHERE a.include_in_stats = 1 AND t.period = '실행'
+        `).get();
 
         // 1-2. 투자 자산 (투자 가치 합산)
         const investResult = db.prepare("SELECT SUM(current_value) as total_invest FROM investments").get();
