@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { evaluate } from 'mathjs';
 
 export default function ExpenseManagement() {
-    const [transactions, setTransactions] = useState([]);
+    // 지출 전체 (날짜 오름차순). 기준월/연도 필터는 렌더링 시 적용
+    const [allExpenses, setAllExpenses] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
 
     const today = new Date();
@@ -33,6 +34,8 @@ export default function ExpenseManagement() {
         is_fixed: '변동', // 구분 (고정/변동)
         note: ''
     });
+    // 분류가 적요 기반으로 자동 선택된 상태인지 (직접 선택한 분류는 덮어쓰지 않음)
+    const [isCategoryAuto, setIsCategoryAuto] = useState(false);
 
     const [editingTxId, setEditingTxId] = useState(null);
     const [editForm, setEditForm] = useState({});
@@ -52,18 +55,9 @@ export default function ExpenseManagement() {
                 // 계좌 종속성 제거 (account_id가 null이거나 1 이상이라도 지출은 모두 표시)
                 // 하지만 요구사항에 따라 다른 계좌 거래내역과 분리한다면 account_id === null 인 것만 불러오면 됩니다.
                 // 일단 지출 전용으로 account_id 가 없는(또는 0인) 항목들 위주로 필터링합니다.
-                let filtered = data.filter(t => !t.account_id && t.expense > 0);
-
-                const startD = new Date(salaryYear, salaryMonth - 1, 20);
-                const endD = new Date(salaryYear, salaryMonth, 19, 23, 59, 59);
-
-                filtered = filtered.filter(t => {
-                    const d = new Date(t.date);
-                    return d >= startD && d <= endD;
-                });
-
+                const filtered = data.filter(t => !t.account_id && t.expense > 0);
                 filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
-                setTransactions(filtered);
+                setAllExpenses(filtered);
             })
             .catch(err => console.error(err));
     };
@@ -128,9 +122,32 @@ export default function ExpenseManagement() {
                 })
             });
             setNewTx(prev => ({ ...prev, store: '', expense: '', note: '', usage_category: '기타' }));
+            setIsCategoryAuto(false);
             fetchTransactions();
         } catch (e) {
             console.error(e);
+        }
+    };
+
+    // 적요 입력 시 같은 적요의 가장 최근 지출 분류를 자동 선택 (공백/대소문자 무시)
+    // '기타'는 미분류 기본값이므로 참고 대상에서 제외
+    const normalizeStore = (s) => (s || '').replace(/\s+/g, '').toLowerCase();
+
+    const handleStoreChange = (e) => {
+        const store = e.target.value;
+        const key = normalizeStore(store);
+        const match = key && allExpenses.findLast(t => t.usage_category && t.usage_category !== '기타' && normalizeStore(t.store) === key);
+        const autoCategory = match && (categories.length === 0 || categories.some(c => c.name === match.usage_category)) ? match.usage_category : null;
+
+        if (autoCategory && (isCategoryAuto || newTx.usage_category === '기타')) {
+            setNewTx({ ...newTx, store, usage_category: autoCategory });
+            setIsCategoryAuto(true);
+        } else if (!autoCategory && isCategoryAuto) {
+            // 일치하는 이전 내역이 없어지면 자동 선택했던 분류를 기본값으로 되돌림
+            setNewTx({ ...newTx, store, usage_category: '기타' });
+            setIsCategoryAuto(false);
+        } else {
+            setNewTx({ ...newTx, store });
         }
     };
 
@@ -278,6 +295,20 @@ export default function ExpenseManagement() {
 
 
 
+    const isInRange = (t, startD, endD) => {
+        const d = new Date(t.date);
+        return d >= startD && d <= endD;
+    };
+
+    // 기준월: 해당월 20일 ~ 익월 19일
+    const transactions = allExpenses.filter(t => isInRange(t, new Date(salaryYear, salaryMonth - 1, 20), new Date(salaryYear, salaryMonth, 19, 23, 59, 59)));
+
+    // 적요 검색은 선택 연도 전체(1월분 ~ 12월분: 1/20 ~ 익년 1/19)를 대상으로 함
+    const search = searchTerm.trim().toLowerCase();
+    const visibleTransactions = search
+        ? allExpenses.filter(t => isInRange(t, new Date(salaryYear, 0, 20), new Date(salaryYear + 1, 0, 19, 23, 59, 59)) && t.store.toLowerCase().includes(search))
+        : transactions;
+
     // 지출 합계 계산
     const totalExpense = transactions.reduce((acc, t) => acc + (t.expense || 0), 0);
     // 고정비용 합계 (사용자 요청은 '변동'이었으나, 타이틀이 '고정비용'이므로 논리적 일관성을 위해 '고정'을 추출)
@@ -320,7 +351,7 @@ export default function ExpenseManagement() {
                         <span style={{ marginRight: '8px' }}>🔍</span>
                         <input
                             type="text"
-                            placeholder="적요 검색..."
+                            placeholder={`${salaryYear}년 적요 검색...`}
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                             style={{ background: 'transparent', border: 'none', color: 'white', outline: 'none', fontSize: '0.9rem', width: '150px' }}
@@ -379,9 +410,9 @@ export default function ExpenseManagement() {
                         <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(236, 72, 153, 0.1)' }}>
                             <td style={tdStyle}><input type="date" value={newTx.date} onChange={e => setNewTx({ ...newTx, date: e.target.value })} style={inputStyle} /></td>
                             <td style={{ ...tdStyle, textAlign: 'center' }}>{getDayOfWeek(newTx.date)}</td>
-                            <td style={tdStyle}><input type="text" placeholder="예: 스타벅스" value={newTx.store} onChange={e => setNewTx({ ...newTx, store: e.target.value })} style={inputStyle} /></td>
+                            <td style={tdStyle}><input type="text" placeholder="예: 스타벅스" value={newTx.store} onChange={handleStoreChange} style={inputStyle} /></td>
                             <td style={tdStyle}>
-                                <select value={newTx.usage_category} onChange={e => setNewTx({ ...newTx, usage_category: e.target.value })} style={{ ...inputStyle, padding: '8px 4px', textAlign: 'center' }}>
+                                <select value={newTx.usage_category} onChange={e => { setNewTx({ ...newTx, usage_category: e.target.value }); setIsCategoryAuto(false); }} style={{ ...inputStyle, padding: '8px 4px', textAlign: 'center' }}>
                                     {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                                     {categories.length === 0 && <option value="기타">기타</option>}
                                 </select>
@@ -412,8 +443,7 @@ export default function ExpenseManagement() {
                             </td>
                         </tr>
 
-                        {transactions
-                            .filter(tx => tx.store.toLowerCase().includes(searchTerm.toLowerCase()))
+                        {visibleTransactions
                             .map(tx => {
                                 const isEditing = editingTxId === tx.id;
 
@@ -480,7 +510,7 @@ export default function ExpenseManagement() {
                                     </tr>
                                 );
                             })}
-                        {transactions.filter(tx => tx.store.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
+                        {visibleTransactions.length === 0 && (
                             <tr>
                                 <td colSpan={9} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>조건에 맞는 지출 내역이 없습니다.</td>
                             </tr>
