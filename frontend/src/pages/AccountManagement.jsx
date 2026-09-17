@@ -8,9 +8,6 @@ export default function AccountManagement() {
     const [editingAccId, setEditingAccId] = useState(null);
     const [editForm, setEditForm] = useState({});
 
-    // 호버 상태 설정 (수정/삭제 텍스트 표시용)
-    const [hoveredAccId, setHoveredAccId] = useState(null);
-
     const fetchAccounts = () => {
         fetch('/api/accounts')
             .then(res => res.json())
@@ -91,7 +88,7 @@ export default function AccountManagement() {
                 <p style={{ color: 'var(--text-muted)' }}>수입과 지출이 일어나는 등록된 통장 목록을 관리합니다.</p>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }}>
+            <div className="grid-form-list">
 
                 {/* 새 계좌 입력 폼 */}
                 <div className="glass-panel">
@@ -178,8 +175,7 @@ export default function AccountManagement() {
                                     return (
                                         <div
                                             key={acc.id}
-                                            onMouseEnter={() => setHoveredAccId(acc.id)}
-                                            onMouseLeave={() => setHoveredAccId(null)}
+                                            className="hover-actions-host"
                                             style={{ background: isExcluded ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.2)', opacity: isExcluded ? 0.6 : 1, padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', position: 'relative' }}
                                         >
                                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
@@ -193,18 +189,15 @@ export default function AccountManagement() {
                                                 {acc.account_number || '-'}
                                             </div>
 
-                                            <div style={{
+                                            <div className="hover-actions" style={{
                                                 display: 'flex',
                                                 gap: '12px',
                                                 justifyContent: 'flex-end',
                                                 paddingTop: '12px',
-                                                borderTop: '1px solid rgba(255,255,255,0.05)',
-                                                opacity: hoveredAccId === acc.id ? 1 : 0,
-                                                transition: 'opacity 0.2s',
-                                                pointerEvents: hoveredAccId === acc.id ? 'auto' : 'none'
+                                                borderTop: '1px solid rgba(255,255,255,0.05)'
                                             }}>
-                                                <span onClick={() => handleEditClick(acc)} style={{ color: '#38bdf8', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 500, textDecoration: 'underline' }}>수정</span>
-                                                <span onClick={() => handleDelete(acc.id)} style={{ color: '#ef4444', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 500, textDecoration: 'underline' }}>삭제</span>
+                                                <button type="button" className="text-action" onClick={() => handleEditClick(acc)} style={{ color: '#38bdf8', textDecoration: 'underline' }}>수정</button>
+                                                <button type="button" className="text-action" onClick={() => handleDelete(acc.id)} style={{ color: '#ef4444', textDecoration: 'underline' }}>삭제</button>
                                             </div>
                                         </div>
                                     );

@@ -1,7 +1,59 @@
 import React, { useState, useEffect } from 'react';
 import { evaluate } from 'mathjs';
+import { Plus, Search } from 'lucide-react';
+import BottomSheet from '../components/BottomSheet';
+import { useIsListLayout } from '../hooks/useMediaQuery';
+import { formatDateHeading, groupByDate } from '../utils/mobileList';
+
+// 모바일 입력 시트의 입출금 입력 필드 (추가/수정 공용)
+function TransactionFormFields({ form, setField, onAmountChange }) {
+    return (
+        <>
+            <div className="form-row">
+                <label className="form-field">
+                    <span>날짜</span>
+                    <input type="date" className="form-control" value={form.date} onChange={e => setField('date', e.target.value)} />
+                </label>
+                <label className="form-field">
+                    <span>상태</span>
+                    <select className="form-control" value={form.period} onChange={e => setField('period', e.target.value)}>
+                        <option>예정</option><option>실행</option>
+                    </select>
+                </label>
+            </div>
+            <label className="form-field">
+                <span>적요 (가맹점)</span>
+                <input type="text" className="form-control" value={form.store} onChange={e => setField('store', e.target.value)} />
+            </label>
+            <div className="form-row">
+                <label className="form-field">
+                    <span>수입</span>
+                    <input type="text" inputMode="numeric" className="form-control" placeholder="0" value={form.income} onChange={e => onAmountChange(e, 'income')} style={{ textAlign: 'right', color: '#fcd34d', fontWeight: 700 }} />
+                </label>
+                <label className="form-field">
+                    <span>지출</span>
+                    <input type="text" inputMode="numeric" className="form-control" placeholder="0" value={form.expense} onChange={e => onAmountChange(e, 'expense')} style={{ textAlign: 'right', color: '#f87171', fontWeight: 700 }} />
+                </label>
+            </div>
+            <div className="form-row">
+                <label className="form-field">
+                    <span>구분</span>
+                    <select className="form-control" value={form.is_fixed} onChange={e => setField('is_fixed', e.target.value)}>
+                        <option>고정</option><option>변동</option>
+                    </select>
+                </label>
+                <label className="form-field">
+                    <span>비고</span>
+                    <input type="text" className="form-control" value={form.note} onChange={e => setField('note', e.target.value)} />
+                </label>
+            </div>
+        </>
+    );
+}
 
 export default function TransactionManagement() {
+    const isMobile = useIsListLayout();
+    const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
     const [accounts, setAccounts] = useState([]);
     const [selectedAccountId, setSelectedAccountId] = useState('');
     const [transactions, setTransactions] = useState([]);
@@ -153,6 +205,7 @@ export default function TransactionManagement() {
                 })
             });
             setNewTx(prev => ({ ...prev, store: '', income: '', expense: '', note: '' }));
+            setIsAddSheetOpen(false);
             fetchTransactions();
             fetchAccounts();
         } catch (e) {
@@ -217,6 +270,7 @@ export default function TransactionManagement() {
             await fetch(`/api/transactions/${id}`, {
                 method: 'DELETE'
             });
+            setEditingTxId(null);
             fetchTransactions();
             fetchAccounts();
         } catch (e) {
@@ -289,29 +343,31 @@ export default function TransactionManagement() {
             .reduce((acc, t) => acc + (t.expense || 0), 0);
     }
 
+    const visibleTransactions = transactions.filter(tx => tx.store.toLowerCase().includes(searchTerm.toLowerCase()));
+
     return (
         <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div className="page-header">
                 <div>
                     <h1 className="text-gradient">입출금 내역</h1>
                     <p style={{ color: 'var(--text-muted)' }}>월천 시스템의 철저한 현금흐름 통제 센터입니다.</p>
                 </div>
 
-                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                <div className="page-header-actions">
                     {selectedAccountId !== '' && (
-                        <div style={{ background: 'rgba(255,255,255,0.05)', padding: '6px 16px', borderRadius: '12px', border: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center' }}>
-                            <span style={{ marginRight: '8px' }}>🔍</span>
+                        <div className="toolbar-box search-box">
+                            <Search size={16} color="var(--text-muted)" aria-hidden="true" />
                             <input
-                                type="text"
+                                type="search"
                                 placeholder="적요 검색..."
+                                aria-label="적요 검색"
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
-                                style={{ background: 'transparent', border: 'none', color: 'white', outline: 'none', fontSize: '0.9rem', width: '150px' }}
                             />
                         </div>
                     )}
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '12px 24px', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>기준월</span>
+                    <div className="toolbar-box">
+                        <span className="toolbar-label">기준월</span>
                         <select value={salaryYear} onChange={e => setSalaryYear(Number(e.target.value))} style={selectStyle}>
                             {[2024, 2025, 2026, 2027, 2028].map(y => <option key={y} value={y}>{y}년</option>)}
                         </select>
@@ -319,12 +375,12 @@ export default function TransactionManagement() {
                             {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <option key={m} value={m}>{m}월분</option>)}
                         </select>
                     </div>
-                    <div style={{ background: 'rgba(255,255,255,0.05)', padding: '12px 24px', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginRight: '12px' }}>조회 계좌 선택</span>
+                    <div className="toolbar-box">
+                        <span className="toolbar-label" style={{ marginRight: '4px' }}>조회 계좌 선택</span>
                         <select
                             value={selectedAccountId}
                             onChange={e => setSelectedAccountId(e.target.value)}
-                            style={selectStyle}
+                            style={{ ...selectStyle, minWidth: 0, flex: 1 }}
                         >
                             <option value="">계좌를 선택하세요</option>
                             {accounts.map(acc => (
@@ -337,29 +393,70 @@ export default function TransactionManagement() {
 
             {/* 상단 요약 (잔액) */}
             {selectedAccountInfo && (
-                <div style={{ display: 'flex', gap: '24px' }}>
+                <div className="stat-row">
                     <div className="glass-panel" style={{ flex: 1, borderTop: '4px solid #38bdf8', padding: '16px 24px' }}>
                         <span style={{ color: 'var(--text-muted)' }}>현재 잔액 (실행 합산)</span>
-                        <div style={{ fontSize: '2rem', fontWeight: 700 }}>
+                        <div className="stat-value">
                             {new Intl.NumberFormat('ko-KR').format(currentBalance)} <span style={{ fontSize: '1rem' }}>원</span>
                         </div>
                     </div>
                     <div className="glass-panel" style={{ flex: 1, borderTop: '4px solid #3b82f6', padding: '16px 24px' }}>
                         <span style={{ color: 'var(--text-muted)' }}>당월 투자금</span>
-                        <div style={{ fontSize: '2rem', fontWeight: 700, color: '#93c5fd' }}>
+                        <div className="stat-value" style={{ color: '#93c5fd' }}>
                             {new Intl.NumberFormat('ko-KR').format(totalInvestment)} <span style={{ fontSize: '1rem' }}>원</span>
                         </div>
                     </div>
                     <div className="glass-panel" style={{ flex: 1, borderTop: '4px solid #fcd34d', padding: '16px 24px' }}>
                         <span style={{ color: 'var(--text-muted)' }}>예정 잔액 (실행 + 예정)</span>
-                        <div style={{ fontSize: '2rem', fontWeight: 700, color: '#fcd34d' }}>
+                        <div className="stat-value" style={{ color: '#fcd34d' }}>
                             {new Intl.NumberFormat('ko-KR').format(plannedBalance)} <span style={{ fontSize: '1rem' }}>원</span>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* 데이터 테이블 */}
+            {/* 데이터 테이블 (모바일은 날짜별 목록) */}
+            {isMobile ? (
+                <div className="glass-panel mobile-list">
+                    {selectedAccountId === '' ? (
+                        <div className="mobile-empty" style={{ color: '#fcd34d' }}>상단에서 계좌를 선택해야 내역을 보고 입력할 수 있습니다.</div>
+                    ) : visibleTransactions.length === 0 ? (
+                        <div className="mobile-empty">
+                            <div style={{ marginBottom: transactions.length === 0 ? '16px' : 0 }}>리스트 항목이 없습니다.</div>
+                            {transactions.length === 0 && (
+                                <button type="button" className="btn btn-secondary" onClick={handleCopyPreviousMonth} style={{ color: '#38bdf8', minHeight: '44px' }}>
+                                    전월 내역 복사
+                                </button>
+                            )}
+                        </div>
+                    ) : (
+                        groupByDate(visibleTransactions).map(group => (
+                            <section key={group.date}>
+                                <h3 className="mobile-list-date">{formatDateHeading(group.date)}</h3>
+                                {group.items.map(tx => {
+                                    const isInvestment = tx.store.includes('투자');
+                                    return (
+                                        <button type="button" key={tx.id} className="mobile-row" onClick={() => handleEditClick(tx)}>
+                                            <span className="mobile-row-main">
+                                                <span className="mobile-row-title">{tx.store || '(적요 없음)'}</span>
+                                                <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                                    {tx.income > 0 && <span className="mobile-row-amount" style={{ color: '#fcd34d' }}>+{new Intl.NumberFormat('ko-KR').format(tx.income)}원</span>}
+                                                    {tx.expense > 0 && <span className="mobile-row-amount" style={{ color: isInvestment ? '#38bdf8' : '#f87171' }}>-{new Intl.NumberFormat('ko-KR').format(tx.expense)}원</span>}
+                                                </span>
+                                            </span>
+                                            <span className="mobile-row-meta">
+                                                <span style={{ color: tx.period === '예정' ? '#fcd34d' : '#34d399' }}>{tx.period || '실행'}</span>
+                                                {tx.is_fixed && ` · ${tx.is_fixed}`}
+                                            </span>
+                                            {tx.note && <span className="mobile-row-note">{tx.note}</span>}
+                                        </button>
+                                    );
+                                })}
+                            </section>
+                        ))
+                    )}
+                </div>
+            ) : (
             <div className="glass-panel" style={{ padding: '0', overflowX: 'auto', outline: 'none' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '1100px' }}>
                     <thead style={{ background: 'rgba(0,0,0,0.3)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
@@ -424,8 +521,7 @@ export default function TransactionManagement() {
                         )}
 
                         {/* 리스트 출력 (검색어 필터 적용) */}
-                        {transactions
-                            .filter(tx => tx.store.toLowerCase().includes(searchTerm.toLowerCase()))
+                        {visibleTransactions
                             .map(tx => {
                                 const isEditing = editingTxId === tx.id;
 
@@ -499,7 +595,7 @@ export default function TransactionManagement() {
                                     </tr>
                                 );
                             })}
-                        {selectedAccountId !== '' && transactions.filter(tx => tx.store.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
+                        {selectedAccountId !== '' && visibleTransactions.length === 0 && (
                             <tr>
                                 <td colSpan={9} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                                     <div style={{ marginBottom: transactions.length === 0 ? '16px' : '0' }}>리스트 항목이 없습니다.</div>
@@ -518,6 +614,43 @@ export default function TransactionManagement() {
                     </tbody>
                 </table>
             </div>
+            )}
+
+            {isMobile && selectedAccountId !== '' && (
+                <>
+                    <div className="fab-spacer" />
+                    <button type="button" className="fab" onClick={() => setIsAddSheetOpen(true)} aria-label="입출금 내역 추가">
+                        <Plus size={26} />
+                    </button>
+                </>
+            )}
+
+            <BottomSheet open={isMobile && isAddSheetOpen} title="입출금 내역 추가" onClose={() => setIsAddSheetOpen(false)}>
+                <form className="form-stack" onSubmit={handleAdd}>
+                    <TransactionFormFields
+                        form={newTx}
+                        setField={(field, value) => setNewTx({ ...newTx, [field]: value })}
+                        onAmountChange={handleNumberChange}
+                    />
+                    <div className="form-actions">
+                        <button type="submit" className="btn btn-primary">추가</button>
+                    </div>
+                </form>
+            </BottomSheet>
+
+            <BottomSheet open={isMobile && editingTxId !== null} title="입출금 내역 수정" onClose={() => setEditingTxId(null)}>
+                <form className="form-stack" onSubmit={e => { e.preventDefault(); handleEditSave(editingTxId); }}>
+                    <TransactionFormFields
+                        form={editForm}
+                        setField={(field, value) => setEditForm({ ...editForm, [field]: value })}
+                        onAmountChange={handleEditNumberChange}
+                    />
+                    <div className="form-actions">
+                        <button type="button" className="btn btn-danger" onClick={() => handleDelete(editingTxId)}>삭제</button>
+                        <button type="submit" className="btn btn-primary">저장</button>
+                    </div>
+                </form>
+            </BottomSheet>
         </div>
     );
 }

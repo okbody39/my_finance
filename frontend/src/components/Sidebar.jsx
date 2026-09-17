@@ -1,51 +1,40 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Wallet, TrendingUp, Settings, Briefcase, CreditCard, LogOut } from 'lucide-react';
+import { LayoutDashboard, Wallet, TrendingUp, Settings, Briefcase, CreditCard, LogOut, X } from 'lucide-react';
 import classNames from 'classnames';
 
-// 사이드바 전용 스타일, 나중에 CSS Modules로 뺄 수도 있지만 index.css 연동을 위해 인라인/클래스 혼용
-const Sidebar = ({ user, onLogout }) => {
+// 데스크톱에서는 고정 사이드바, 1024px 이하에서는 왼쪽에서 열리는 서랍 메뉴 (스타일은 index.css의 .sidebar)
+const Sidebar = ({ user, onLogout, isOpen, onClose, onNavigate }) => {
+    const closeButtonRef = useRef(null);
+
+    useEffect(() => {
+        if (isOpen) closeButtonRef.current?.focus();
+    }, [isOpen]);
+
     return (
-        <aside style={{
-            width: '260px',
-            background: 'rgba(15, 17, 21, 0.8)',
-            borderRight: '1px solid rgba(255,255,255,0.05)',
-            padding: '32px 24px',
-            display: 'flex',
-            flexDirection: 'column',
-            backdropFilter: 'blur(16px)'
-        }}>
-            <div style={{ marginBottom: '40px', paddingLeft: '12px' }}>
-                <h1 style={{
-                    fontSize: '1.75rem',
-                    fontWeight: 800,
-                    background: 'linear-gradient(90deg, #4f46e5, #38bdf8)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent'
-                }}>
-                    월천 System
-                </h1>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' }}>
-                    Passive Income Auto-Pilot
-                </p>
+        <aside id="app-sidebar" className={classNames('sidebar', { 'is-open': isOpen })} aria-label="메뉴">
+            <div className="sidebar-brand">
+                <div>
+                    <h1 className="brand-wordmark">월천 System</h1>
+                    <p className="sidebar-tagline">Passive Income Auto-Pilot</p>
+                </div>
+                <button type="button" ref={closeButtonRef} className="icon-button sidebar-close" onClick={onClose} aria-label="메뉴 닫기">
+                    <X size={22} />
+                </button>
             </div>
 
-            <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <NavItem to="/dashboard" icon={<LayoutDashboard size={20} />} label="대시보드" />
-                <NavItem to="/accounts" icon={<Wallet size={20} />} label="계좌 등록/관리" />
-                <NavItem to="/transactions" icon={<TrendingUp size={20} />} label="입출금 내역" />
-                <NavItem to="/expenses" icon={<CreditCard size={20} />} label="지출 내역" />
-                <NavItem to="/investments" icon={<Briefcase size={20} />} label="투자 코어 자산" />
-                <div style={{ flex: 1, minHeight: '40px' }} />
-                <NavItem to="/settings" icon={<Settings size={20} />} label="시스템 설정" />
+            <nav className="sidebar-nav">
+                <NavItem to="/dashboard" icon={<LayoutDashboard size={20} />} label="대시보드" onNavigate={onNavigate} />
+                <NavItem to="/accounts" icon={<Wallet size={20} />} label="계좌 등록/관리" onNavigate={onNavigate} />
+                <NavItem to="/transactions" icon={<TrendingUp size={20} />} label="입출금 내역" onNavigate={onNavigate} />
+                <NavItem to="/expenses" icon={<CreditCard size={20} />} label="지출 내역" onNavigate={onNavigate} />
+                <NavItem to="/investments" icon={<Briefcase size={20} />} label="투자 코어 자산" onNavigate={onNavigate} />
+                <div className="sidebar-nav-spacer" />
+                <NavItem to="/settings" icon={<Settings size={20} />} label="시스템 설정" onNavigate={onNavigate} />
             </nav>
 
-            <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                {user && (
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', padding: '0 16px 4px' }}>
-                        {user.username} 계정으로 로그인됨
-                    </p>
-                )}
+            <div className="sidebar-footer">
+                {user && <p className="sidebar-user">{user.username} 계정으로 로그인됨</p>}
                 <button type="button" className="sidebar-logout" onClick={onLogout}>
                     <LogOut size={20} />
                     <span>로그아웃</span>
@@ -55,29 +44,13 @@ const Sidebar = ({ user, onLogout }) => {
     );
 };
 
-const NavItem = ({ to, icon, label }) => {
+const NavItem = ({ to, icon, label, onNavigate }) => {
     return (
         <NavLink
             to={to}
-            className={({ isActive }) =>
-                classNames(
-                    'nav-link',
-                    isActive ? 'active' : ''
-                )
-            }
-            style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '12px 16px',
-                borderRadius: '12px',
-                color: 'var(--text-muted)',
-                textDecoration: 'none',
-                fontWeight: 500,
-                transition: 'all 0.2s',
-            }}
+            onClick={onNavigate}
+            className={({ isActive }) => classNames('nav-link', { active: isActive })}
         >
-            {/* active state logic handled via external css or inline */}
             {icon}
             <span>{label}</span>
         </NavLink>

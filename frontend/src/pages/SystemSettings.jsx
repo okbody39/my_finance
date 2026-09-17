@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 
 const CategoryList = ({ title, data, type, newValue, setNewValue, onAdd, onDelete, onReorder }) => {
     const dragItem = useRef(null);
@@ -23,8 +24,17 @@ const CategoryList = ({ title, data, type, newValue, setNewValue, onAdd, onDelet
         onReorder(type, _data);
     };
 
+    // 터치 기기는 드래그 앤 드롭이 동작하지 않으므로 위/아래 버튼으로 순서 변경
+    const moveItem = (index, offset) => {
+        const target = index + offset;
+        if (target < 0 || target >= data.length) return;
+        const _data = [...data];
+        [_data[index], _data[target]] = [_data[target], _data[index]];
+        onReorder(type, _data);
+    };
+
     return (
-        <div style={{ flex: 1, minWidth: '300px' }} className="glass-panel">
+        <div style={{ flex: '1 1 300px', minWidth: 0 }} className="glass-panel">
             <h2 style={{ fontSize: '1.2rem', marginBottom: '16px', color: '#38bdf8' }}>{title} 관리</h2>
 
             <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
@@ -35,6 +45,7 @@ const CategoryList = ({ title, data, type, newValue, setNewValue, onAdd, onDelet
                     placeholder="새 카테고리 이름..."
                     style={{
                         flex: 1,
+                        minWidth: 0,
                         background: 'rgba(0,0,0,0.3)',
                         border: '1px solid rgba(255,255,255,0.1)',
                         color: 'white',
@@ -75,18 +86,41 @@ const CategoryList = ({ title, data, type, newValue, setNewValue, onAdd, onDelet
                             <span style={{ color: 'rgba(255,255,255,0.3)', cursor: 'grab' }}>☰</span>
                             <span style={{ fontSize: '1rem', fontWeight: 500 }}>{cat.name}</span>
                         </div>
-                        <button
-                            onClick={() => onDelete(cat.id)}
-                            style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}
-                        >
-                            삭제
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div className="reorder-buttons">
+                                <button type="button" onClick={() => moveItem(index, -1)} disabled={index === 0} aria-label={`${cat.name} 위로`} style={reorderButtonStyle}>
+                                    <ChevronUp size={18} />
+                                </button>
+                                <button type="button" onClick={() => moveItem(index, 1)} disabled={index === data.length - 1} aria-label={`${cat.name} 아래로`} style={reorderButtonStyle}>
+                                    <ChevronDown size={18} />
+                                </button>
+                            </div>
+                            <button
+                                onClick={() => onDelete(cat.id)}
+                                style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}
+                            >
+                                삭제
+                            </button>
+                        </div>
                     </div>
                 ))}
             </div>
-            <p style={{ marginTop: '16px', fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center' }}>항목을 드래그 앤 드롭하여 순서를 변경할 수 있습니다.</p>
+            <p className="drag-hint-pointer" style={{ marginTop: '16px', fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center' }}>항목을 드래그 앤 드롭하여 순서를 변경할 수 있습니다.</p>
+            <p className="drag-hint-touch" style={{ marginTop: '16px', fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center' }}>화살표 버튼으로 순서를 변경할 수 있습니다.</p>
         </div>
     );
+};
+
+const reorderButtonStyle = {
+    display: 'grid',
+    placeItems: 'center',
+    width: '36px',
+    height: '36px',
+    background: 'rgba(255,255,255,0.06)',
+    color: 'var(--text-main)',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer'
 };
 
 export default function SystemSettings() {

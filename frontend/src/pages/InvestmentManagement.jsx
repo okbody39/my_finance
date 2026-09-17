@@ -8,7 +8,6 @@ export default function InvestmentManagement() {
     // 수정 모드 상태 관리
     const [editingInvId, setEditingInvId] = useState(null);
     const [editForm, setEditForm] = useState({ name: '', type: '주식', current_value: '', target_value: '' });
-    const [hoveredInvId, setHoveredInvId] = useState(null);
 
     const fetchInvestments = () => {
         fetch('/api/investments')
@@ -124,7 +123,7 @@ export default function InvestmentManagement() {
                 <p style={{ color: 'var(--text-muted)' }}>배당과 시세차익을 가져다주는 핵심 경제적 자유 자산들입니다.</p>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }}>
+            <div className="grid-form-list">
                 {/* 새 자산 입력 폼 */}
                 <div className="glass-panel" style={{ alignSelf: 'start' }}>
                     <h3 style={{ marginBottom: '16px' }}>새로운 자산 추가</h3>
@@ -161,11 +160,10 @@ export default function InvestmentManagement() {
                         {investments.length === 0 ? (
                             <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>등재된 코어 자산이 없습니다.</div>
                         ) : (
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginTop: '16px' }}>
+                            <div className="grid-auto-cards" style={{ gap: '16px', marginTop: '16px' }}>
                                 {investments.map(inv => {
                                     const progress = inv.target_value ? Math.min(100, (inv.current_value / inv.target_value) * 100) : 0;
                                     const isEditing = editingInvId === inv.id;
-                                    const isHovered = hoveredInvId === inv.id;
 
                                     if (isEditing) {
                                         return (
@@ -189,18 +187,15 @@ export default function InvestmentManagement() {
                                     return (
                                         <div
                                             key={inv.id}
-                                            onMouseEnter={() => setHoveredInvId(inv.id)}
-                                            onMouseLeave={() => setHoveredInvId(null)}
+                                            className="hover-actions-host"
                                             style={{ background: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: '8px', position: 'relative' }}
                                         >
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                 <span style={{ color: '#a78bfa', fontSize: '0.85rem', fontWeight: 600 }}>{inv.type}</span>
-                                                {isHovered && (
-                                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                                        <span onClick={() => handleEditStart(inv)} style={{ fontSize: '0.75rem', color: '#38bdf8', cursor: 'pointer' }}>수정</span>
-                                                        <span onClick={() => handleDelete(inv.id)} style={{ fontSize: '0.75rem', color: '#ef4444', cursor: 'pointer' }}>삭제</span>
-                                                    </div>
-                                                )}
+                                                <div className="hover-actions" style={{ display: 'flex', gap: '8px' }}>
+                                                    <button type="button" className="text-action" onClick={() => handleEditStart(inv)} style={{ color: '#38bdf8' }}>수정</button>
+                                                    <button type="button" className="text-action" onClick={() => handleDelete(inv.id)} style={{ color: '#ef4444' }}>삭제</button>
+                                                </div>
                                             </div>
                                             <strong style={{ fontSize: '1.1rem' }}>{inv.name}</strong>
 

@@ -40,13 +40,13 @@ export function SortableCustomCard({ id, title, formula, evaluatedValue, goalOpe
                 </h3>
                 {isEditingMode && (
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <button onClick={() => onEdit({id, title, formula, goalOperator, goalValue: rawGoalValue})} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px' }} title="수정">
+                        <button onClick={() => onEdit({id, title, formula, goalOperator, goalValue: rawGoalValue})} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '8px' }} title="수정" aria-label="수정">
                             <Edit2 size={16} />
                         </button>
-                        <button onClick={() => onDelete(id)} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }} title="삭제">
+                        <button onClick={() => onDelete(id)} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '8px' }} title="삭제" aria-label="삭제">
                             <Trash2 size={16} />
                         </button>
-                        <div {...attributes} {...listeners} style={{ cursor: 'grab', display: 'flex', alignItems: 'center', color: '#64748b' }}>
+                        <div {...attributes} {...listeners} style={{ cursor: 'grab', display: 'flex', alignItems: 'center', color: '#64748b', padding: '6px', touchAction: 'none' }}>
                             <GripVertical size={20} />
                         </div>
                     </div>

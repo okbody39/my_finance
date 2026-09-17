@@ -1,13 +1,15 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, rectSortingStrategy } from '@dnd-kit/sortable';
 import { evaluate } from 'mathjs';
 import { Plus, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
 import { SortableCustomCard } from '../components/SortableCustomCard';
+import { useIsMobile } from '../hooks/useMediaQuery';
 
 export default function Dashboard() {
+    const isMobile = useIsMobile();
     const currentRealYear = new Date().getFullYear();
     const [selectedYear, setSelectedYear] = useState(currentRealYear);
     const [summary, setSummary] = useState({
@@ -421,7 +423,7 @@ export default function Dashboard() {
         <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="page-header" style={{ alignItems: 'center' }}>
                 <div>
                     <h1 className="text-gradient">성과 측정 (대시보드)</h1>
                     <p style={{ color: 'var(--text-muted)' }}>가만히 있어도 자동으로 늘어나는 수익금 모니터링</p>
@@ -441,15 +443,15 @@ export default function Dashboard() {
 
             {/* Market Data Cards */}
             {marketData.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+                <div className="grid-4" style={{ gap: isMobile ? '10px' : '16px' }}>
                     {marketData.map((data, idx) => (
-                        <div key={idx} className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div key={idx} className="glass-panel" style={{ padding: isMobile ? '12px 14px' : '16px', display: 'flex', flexDirection: 'column', border: '1px solid rgba(255,255,255,0.05)', minWidth: 0 }}>
                             <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 500 }}>{data.name}</div>
                             {data.error ? (
                                 <div style={{ color: '#ef4444', marginTop: '4px', fontSize: '0.85rem' }}>데이터 없음</div>
                             ) : (
                                 <>
-                                    <div style={{ fontSize: '1.25rem', fontWeight: 600, marginTop: '4px', color: '#f8fafc' }}>
+                                    <div style={{ fontSize: isMobile ? '1.05rem' : '1.25rem', fontWeight: 600, marginTop: '4px', color: '#f8fafc', overflowWrap: 'anywhere' }}>
                                         {data.price?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {data.currency}
                                     </div>
                                     <div style={{
@@ -473,7 +475,7 @@ export default function Dashboard() {
             {/* Custom Cards Section */}
             {customCards && customCards.length > 0 && (
                 <div style={{ padding: '8px 0' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
                         <h3 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px', color: '#f8fafc' }}>
                             내 커스텀 지표
                         </h3>
@@ -482,7 +484,7 @@ export default function Dashboard() {
                                 onClick={() => setIsEditMode(!isEditMode)}
                                 style={{
                                     background: isEditMode ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255,255,255,0.1)',
-                                    border: 'none', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', color: isEditMode ? '#38bdf8' : '#fff', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem'
+                                    border: 'none', padding: isMobile ? '10px 14px' : '6px 12px', borderRadius: '8px', cursor: 'pointer', color: isEditMode ? '#38bdf8' : '#fff', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem'
                                 }}
                             >
                                 <Settings size={16} />
@@ -495,7 +497,7 @@ export default function Dashboard() {
                                     setIsModalOpen(true);
                                 }}
                                 style={{
-                                    background: '#38bdf8', color: '#0f1115', border: 'none', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', fontWeight: 600
+                                    background: '#38bdf8', color: '#0f1115', border: 'none', padding: isMobile ? '10px 14px' : '6px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', fontWeight: 600
                                 }}
                             >
                                 <Plus size={16} /> 새 카드 추가
@@ -505,7 +507,7 @@ export default function Dashboard() {
 
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                         <SortableContext items={customCards.map(c => c.id.toString())} strategy={rectSortingStrategy}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+                            <div className="grid-4 grid-collapse-mobile" style={{ gap: isMobile ? '12px' : '16px' }}>
                                 {customCards.map(card => (
                                     <div key={card.id}>
                                         <SortableCustomCard
@@ -533,7 +535,7 @@ export default function Dashboard() {
             )}
 
             {(!customCards || customCards.length === 0) && (
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-40px', marginBottom: '40px' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: isMobile ? 0 : '-40px', marginBottom: isMobile ? 0 : '40px' }}>
                     <button
                         onClick={() => {
                             setEditingCard(null);
@@ -550,18 +552,18 @@ export default function Dashboard() {
             )}
 
             {/* Top Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px' }}>
+            <div className="grid-4 grid-collapse-mobile" style={{ gap: isMobile ? '12px' : '24px' }}>
 
                 <div className="glass-panel" style={{ borderLeft: '4px solid #4f46e5' }}>
                     <h3 style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 500 }}>총 순자산 (Net Worth)</h3>
-                    <div style={{ fontSize: '2.2rem', fontWeight: 700, margin: '8px 0' }}>
+                    <div className="stat-value" style={{ margin: isMobile ? '4px 0' : '8px 0', fontSize: isMobile ? undefined : '2.2rem' }}>
                         {formatCurrencyThousands(summary.netWorth)}
                     </div>
                 </div>
 
                 <div className="glass-panel" style={{ borderLeft: '4px solid #10b981' }}>
                     <h3 style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 500 }}>누적 수익금 (Income)</h3>
-                    <div style={{ fontSize: '2rem', fontWeight: 700, margin: '8px 0' }}>
+                    <div className="stat-value" style={{ margin: isMobile ? '4px 0' : '8px 0' }}>
                         {formatCurrencyThousands(summary.cumulativeIncome)}
                     </div>
                     {isCurrentYear && <div style={{ color: '#10b981', fontSize: '0.85rem' }}>이번 달 수익금: {formatCurrencyThousands(displayThisMonthIncome)}</div>}
@@ -570,7 +572,7 @@ export default function Dashboard() {
 
                 <div className="glass-panel" style={{ borderLeft: '4px solid #38bdf8' }}>
                     <h3 style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 500 }}>누적 투자 (Investment)</h3>
-                    <div style={{ fontSize: '2rem', fontWeight: 700, margin: '8px 0' }}>
+                    <div className="stat-value" style={{ margin: isMobile ? '4px 0' : '8px 0' }}>
                         {formatCurrencyThousands(summary.cumulativeInvestment)}
                     </div>
                     {isCurrentYear && <div style={{ color: '#38bdf8', fontSize: '0.85rem' }}>이번 달 투자: {formatCurrencyThousands(displayThisMonthInvestment)}</div>}
@@ -579,7 +581,7 @@ export default function Dashboard() {
 
                 <div className="glass-panel" style={{ borderLeft: '4px solid #ef4444' }}>
                     <h3 style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 500 }}>누적 지출 (Expense)</h3>
-                    <div style={{ fontSize: '2rem', fontWeight: 700, margin: '8px 0' }}>
+                    <div className="stat-value" style={{ margin: isMobile ? '4px 0' : '8px 0' }}>
                         {formatCurrencyThousands(summary.cumulativeExpense)}
                     </div>
                     {isCurrentYear && <div style={{ color: '#ef4444', fontSize: '0.85rem' }}>이번 달 지출: {formatCurrencyThousands(displayThisMonthExpense)}</div>}
@@ -591,30 +593,31 @@ export default function Dashboard() {
             {/* 연간 월별 성과 (전체 폭 차지) */}
             <div className="glass-panel">
                 <h3 style={{ marginBottom: '16px' }}>{selectedYear}년 연간 월별 성과</h3>
-                <div style={{ height: '300px' }}>
+                <div style={{ height: isMobile ? '240px' : '300px' }}>
                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={cashflowData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                        <BarChart data={cashflowData} margin={isMobile ? { top: 10, right: 4, left: 0, bottom: 0 } : { top: 20, right: 30, left: 20, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                            <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
-                            <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(val) => (val / 10000) + '만'} />
+                            <XAxis dataKey="name" stroke="#94a3b8" fontSize={isMobile ? 10 : 12} interval={0} tickFormatter={isMobile ? (name) => name.replace('월', '') : undefined} />
+                            <YAxis stroke="#94a3b8" fontSize={isMobile ? 10 : 12} width={isMobile ? 44 : 60} tickFormatter={(val) => (val / 10000) + '만'} />
                             <RechartsTooltip
                                 cursor={{ fill: 'rgba(255,255,255,0.02)' }}
                                 contentStyle={{ backgroundColor: 'rgba(15,17,21,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
                                 itemStyle={{ color: '#f8fafc', fontWeight: 600 }}
                                 labelStyle={{ color: '#94a3b8', fontWeight: 500, paddingBottom: '4px' }}
                             />
-                            <Bar dataKey="수입" fill="#10b981" radius={[4, 4, 0, 0]} barSize={15} />
-                            <Bar dataKey="투자" fill="#38bdf8" radius={[4, 4, 0, 0]} barSize={15} />
-                            <Bar dataKey="지출" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={15} />
+                            <Bar dataKey="수입" fill="#10b981" radius={isMobile ? [2, 2, 0, 0] : [4, 4, 0, 0]} barSize={isMobile ? 5 : 15} />
+                            <Bar dataKey="투자" fill="#38bdf8" radius={isMobile ? [2, 2, 0, 0] : [4, 4, 0, 0]} barSize={isMobile ? 5 : 15} />
+                            <Bar dataKey="지출" fill="#ef4444" radius={isMobile ? [2, 2, 0, 0] : [4, 4, 0, 0]} barSize={isMobile ? 5 : 15} />
+                            {isMobile && <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '12px' }} />}
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
             </div>
 
             {/* Lower Section (Pie Charts) */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+            <div className="grid-2" style={{ gap: isMobile ? '12px' : '24px' }}>
                 <div className="glass-panel">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
                         <h3 style={{ margin: 0 }}>자산 포트폴리오 비중</h3>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.85rem', cursor: 'pointer' }}>
                             <input 
@@ -629,20 +632,20 @@ export default function Dashboard() {
                         <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>차트 총액: </span>
                         <span style={{ fontSize: '1.2rem', fontWeight: 700, color: '#f8fafc' }}>{formatCurrency(totalAssetValue)}</span>
                     </div>
-                    <div style={{ height: '300px' }}>
+                    <div style={{ height: isMobile ? '280px' : '300px' }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie
                                     data={assetData}
                                     cx="50%"
                                     cy="50%"
-                                    innerRadius={80}
-                                    outerRadius={110}
+                                    innerRadius={isMobile ? 58 : 80}
+                                    outerRadius={isMobile ? 84 : 110}
                                     paddingAngle={5}
                                     dataKey="value"
                                     stroke="none"
-                                    label={({ name }) => name}
-                                    labelLine={{ stroke: 'rgba(255,255,255,0.2)' }}
+                                    label={isMobile ? false : ({ name }) => name}
+                                    labelLine={isMobile ? false : { stroke: 'rgba(255,255,255,0.2)' }}
                                 >
                                     {assetData.map((entry, index) => (
                                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -654,13 +657,14 @@ export default function Dashboard() {
                                     itemStyle={{ color: '#f8fafc', fontWeight: 600 }}
                                     labelStyle={{ color: '#94a3b8', fontWeight: 500, paddingBottom: '4px' }}
                                 />
+                                {isMobile && <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '12px' }} />}
                             </PieChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
 
                 <div className="glass-panel">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
                         <h3 style={{ margin: 0 }}>
                             {expenseChartPeriod === 'yearly' ? `${selectedYear}년 ` : '당월 '}
                             지출 분류별 비중
@@ -671,7 +675,7 @@ export default function Dashboard() {
                                 style={{
                                     background: expenseChartPeriod === 'yearly' ? 'rgba(255,255,255,0.1)' : 'transparent',
                                     color: expenseChartPeriod === 'yearly' ? '#fff' : 'var(--text-muted)',
-                                    border: 'none', padding: '4px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: expenseChartPeriod === 'yearly' ? 600 : 400
+                                    border: 'none', padding: isMobile ? '8px 14px' : '4px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: expenseChartPeriod === 'yearly' ? 600 : 400
                                 }}
                             >년 누적</button>
                             <button
@@ -679,7 +683,7 @@ export default function Dashboard() {
                                 style={{
                                     background: expenseChartPeriod === 'monthly' ? 'rgba(255,255,255,0.1)' : 'transparent',
                                     color: expenseChartPeriod === 'monthly' ? '#fff' : 'var(--text-muted)',
-                                    border: 'none', padding: '4px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: expenseChartPeriod === 'monthly' ? 600 : 400
+                                    border: 'none', padding: isMobile ? '8px 14px' : '4px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: expenseChartPeriod === 'monthly' ? 600 : 400
                                 }}
                             >당월</button>
                         </div>
@@ -693,20 +697,20 @@ export default function Dashboard() {
                             지출 내역 데이터가 없습니다.
                         </div>
                     ) : (
-                        <div style={{ height: '300px' }}>
+                        <div style={{ height: isMobile ? '280px' : '300px' }}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie
                                         data={expenseData}
                                         cx="50%"
                                         cy="50%"
-                                        innerRadius={80}
-                                        outerRadius={110}
+                                        innerRadius={isMobile ? 58 : 80}
+                                        outerRadius={isMobile ? 84 : 110}
                                         paddingAngle={5}
                                         dataKey="value"
                                         stroke="none"
-                                        label={({ name }) => name}
-                                        labelLine={{ stroke: 'rgba(255,255,255,0.2)' }}
+                                        label={isMobile ? false : ({ name }) => name}
+                                        labelLine={isMobile ? false : { stroke: 'rgba(255,255,255,0.2)' }}
                                     >
                                         {expenseData.map((entry, index) => (
                                             <Cell key={`cell-${index}`} fill={EXPENSE_COLORS[index % EXPENSE_COLORS.length]} />
@@ -718,6 +722,7 @@ export default function Dashboard() {
                                         itemStyle={{ color: '#f8fafc', fontWeight: 600 }}
                                         labelStyle={{ color: '#94a3b8', fontWeight: 500, paddingBottom: '4px' }}
                                     />
+                                    {isMobile && <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '12px' }} />}
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
@@ -726,13 +731,14 @@ export default function Dashboard() {
             </div>
 
             {/* Calendar Section */}
-            <div className="glass-panel" style={{ padding: '24px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <div className="glass-panel" style={{ padding: isMobile ? '16px 12px' : '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: isMobile ? '16px' : '24px' }}>
                     <h3 style={{ margin: 0 }}>월별 입출금 현황 달력</h3>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '16px' }}>
                         <button 
                             onClick={handlePrevMonth}
-                            style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', padding: '8px', display: 'flex', cursor: 'pointer', color: '#fff' }}
+                            aria-label="이전 달"
+                            style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', padding: isMobile ? '10px' : '8px', display: 'flex', cursor: 'pointer', color: '#fff' }}
                         >
                             <ChevronLeft size={20} />
                         </button>
@@ -741,20 +747,21 @@ export default function Dashboard() {
                         </span>
                         <button 
                             onClick={handleNextMonth}
-                            style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', padding: '8px', display: 'flex', cursor: 'pointer', color: '#fff' }}
+                            aria-label="다음 달"
+                            style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', padding: isMobile ? '10px' : '8px', display: 'flex', cursor: 'pointer', color: '#fff' }}
                         >
                             <ChevronRight size={20} />
                         </button>
                     </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px', marginBottom: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: isMobile ? '4px' : '8px', marginBottom: '8px' }}>
                     {['일', '월', '화', '수', '목', '금', '토'].map(d => (
-                        <div key={d} style={{ textAlign: 'center', fontWeight: 'bold', color: 'var(--text-muted)' }}>{d}</div>
+                        <div key={d} style={{ textAlign: 'center', fontWeight: 'bold', color: 'var(--text-muted)', fontSize: isMobile ? '0.8rem' : undefined }}>{d}</div>
                     ))}
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: isMobile ? '4px' : '8px' }}>
                     {generateCalendarGrid().map((day, idx) => {
                         const dayTxs = getTransactionsForDate(day);
                         const dailyIncome = dayTxs.reduce((acc, t) => acc + (t.income || 0), 0);
@@ -768,19 +775,27 @@ export default function Dashboard() {
                                 background: isToday ? 'rgba(56, 189, 248, 0.1)' : 'rgba(0,0,0,0.3)',
                                 border: isToday ? '1px solid rgba(56, 189, 248, 0.5)' : '1px solid rgba(255,255,255,0.05)',
                                 borderRadius: '8px', 
-                                minHeight: '100px', 
-                                padding: '8px',
+                                minHeight: isMobile ? '52px' : '100px', 
+                                padding: isMobile ? '4px' : '8px',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 cursor: day ? 'pointer' : 'default'
                             }}>
                                 {day && (
                                     <>
-                                        <div style={{ fontWeight: 'bold', color: isToday ? '#38bdf8' : '#e2e8f0' }}>{day}</div>
+                                        <div style={{ fontWeight: 'bold', color: isToday ? '#38bdf8' : '#e2e8f0', fontSize: isMobile ? '0.85rem' : undefined, textAlign: isMobile ? 'center' : undefined }}>{day}</div>
+                                        {isMobile ? (
+                                            // 모바일: 금액 대신 수입/지출 점 표시 (탭하면 상세)
+                                            <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'center', gap: '4px', paddingBottom: '2px' }}>
+                                                {dailyIncome > 0 && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />}
+                                                {dailyExpense > 0 && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }} />}
+                                            </div>
+                                        ) : (
                                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: '4px', marginTop: '8px' }}>
                                             {dailyIncome > 0 && <div style={{ fontSize: '0.8rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 6px', borderRadius: '4px', textAlign: 'right' }}>+{formatCurrencyThousands(dailyIncome)}</div>}
                                             {dailyExpense > 0 && <div style={{ fontSize: '0.8rem', color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', padding: '2px 6px', borderRadius: '4px', textAlign: 'right' }}>-{formatCurrencyThousands(dailyExpense)}</div>}
                                         </div>
+                                        )}
                                     </>
                                 )}
                             </div>
@@ -791,11 +806,11 @@ export default function Dashboard() {
 
             {/* Date Details Modal */}
             {selectedDateDetails && createPortal(
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="modal-overlay" style={{ zIndex: 10000 }}>
                     <div className="glass-panel" style={{ width: '500px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', padding: '24px', position: 'relative', background: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                             <h2 style={{ margin: 0, fontSize: '1.25rem' }}>{calendarDate.getFullYear()}년 {calendarDate.getMonth() + 1}월 {selectedDateDetails.day}일 상세내역</h2>
-                            <button onClick={() => setSelectedDateDetails(null)} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1 }}>&times;</button>
+                            <button onClick={() => setSelectedDateDetails(null)} aria-label="닫기" style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1, padding: '4px 8px' }}>&times;</button>
                         </div>
                         <div style={{ overflowY: 'auto', flex: 1, paddingRight: '12px' }}>
                             {selectedDateDetails.txs.length === 0 ? (
@@ -830,7 +845,7 @@ export default function Dashboard() {
 
             {/* Custom Card Modal */}
             {isModalOpen && createPortal(
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="modal-overlay" style={{ zIndex: 9999 }}>
                     <div className="glass-panel" style={{ width: '400px', padding: '24px', position: 'relative', background: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px' }}>
                         <h2 style={{ margin: '0 0 16px', fontSize: '1.25rem' }}>{editingCard ? '커스텀 지표 수정' : '새 커스텀 지표 작성'}</h2>
 
@@ -857,8 +872,8 @@ export default function Dashboard() {
                             />
                         </div>
 
-                        <div style={{ marginBottom: '24px', display: 'flex', gap: '12px' }}>
-                            <div style={{ flex: 1 }}>
+                        <div style={{ marginBottom: '24px', display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                            <div style={{ flex: '1 1 120px' }}>
                                 <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>목표 조건</label>
                                 <select
                                     value={cardForm.goalOperator}
@@ -871,7 +886,7 @@ export default function Dashboard() {
                                     <option value="=">결과가 같음 {'='}</option>
                                 </select>
                             </div>
-                            <div style={{ flex: 2 }}>
+                            <div style={{ flex: '2 1 180px' }}>
                                 <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>기준 값 (수식 가능)</label>
                                 <input
                                     type="text"

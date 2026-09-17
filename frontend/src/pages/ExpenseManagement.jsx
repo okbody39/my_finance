@@ -1,8 +1,63 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { evaluate } from 'mathjs';
+import { Plus, Search } from 'lucide-react';
+import BottomSheet from '../components/BottomSheet';
+import { useIsListLayout } from '../hooks/useMediaQuery';
+import { formatDateHeading, groupByDate } from '../utils/mobileList';
+
+// 모바일 입력 시트의 지출 입력 필드 (추가/수정 공용)
+function ExpenseFormFields({ form, setField, onStoreChange, onAmountChange, categories, paymentMethods }) {
+    return (
+        <>
+            <div className="form-row">
+                <label className="form-field">
+                    <span>날짜</span>
+                    <input type="date" className="form-control" value={form.date} onChange={e => setField('date', e.target.value)} />
+                </label>
+                <label className="form-field">
+                    <span>지출 금액</span>
+                    <input type="text" inputMode="numeric" className="form-control" placeholder="0" value={form.expense} onChange={onAmountChange} style={{ textAlign: 'right', color: '#f87171', fontWeight: 700 }} />
+                </label>
+            </div>
+            <label className="form-field">
+                <span>적요 (가맹점)</span>
+                <input type="text" className="form-control" placeholder="예: 스타벅스" value={form.store} onChange={onStoreChange} />
+            </label>
+            <div className="form-row form-row-3">
+                <label className="form-field">
+                    <span>분류</span>
+                    <select className="form-control" value={form.usage_category} onChange={e => setField('usage_category', e.target.value)}>
+                        {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                        {categories.length === 0 && <option value="기타">기타</option>}
+                    </select>
+                </label>
+                <label className="form-field">
+                    <span>사용</span>
+                    <select className="form-control" value={form.payment_method} onChange={e => setField('payment_method', e.target.value)}>
+                        {paymentMethods.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                        {paymentMethods.length === 0 && <option value="기타">기타</option>}
+                    </select>
+                </label>
+                <label className="form-field">
+                    <span>구분</span>
+                    <select className="form-control" value={form.is_fixed} onChange={e => setField('is_fixed', e.target.value)}>
+                        <option>고정</option><option>변동</option>
+                    </select>
+                </label>
+            </div>
+            <label className="form-field">
+                <span>비고</span>
+                <input type="text" className="form-control" value={form.note} onChange={e => setField('note', e.target.value)} />
+            </label>
+        </>
+    );
+}
 
 export default function ExpenseManagement() {
+    const isMobile = useIsListLayout();
+    const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
+
     // 지출 전체 (날짜 오름차순). 기준월/연도 필터는 렌더링 시 적용
     const [allExpenses, setAllExpenses] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -123,6 +178,7 @@ export default function ExpenseManagement() {
             });
             setNewTx(prev => ({ ...prev, store: '', expense: '', note: '', usage_category: '기타' }));
             setIsCategoryAuto(false);
+            setIsAddSheetOpen(false);
             fetchTransactions();
         } catch (e) {
             console.error(e);
@@ -202,6 +258,7 @@ export default function ExpenseManagement() {
             await fetch(`/api/transactions/${id}`, {
                 method: 'DELETE'
             });
+            setEditingTxId(null);
             fetchTransactions();
         } catch (e) {
             console.error(e);
@@ -331,10 +388,10 @@ export default function ExpenseManagement() {
 
     return (
         <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div className="page-header">
                 <div>
                     <h1 className="text-gradient" style={{ marginBottom: '8px' }}>지출 내역 관리</h1>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                         <p style={{ color: 'var(--text-muted)', margin: 0 }}>카드사용 내역 기반 지출 전용 관리 및 업로드</p>
                         <button
                             className="btn btn-primary"
@@ -346,19 +403,19 @@ export default function ExpenseManagement() {
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                    <div style={{ background: 'rgba(255,255,255,0.05)', padding: '6px 16px', borderRadius: '12px', border: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center' }}>
-                        <span style={{ marginRight: '8px' }}>🔍</span>
+                <div className="page-header-actions">
+                    <div className="toolbar-box search-box">
+                        <Search size={16} color="var(--text-muted)" aria-hidden="true" />
                         <input
-                            type="text"
+                            type="search"
                             placeholder={`${salaryYear}년 적요 검색...`}
+                            aria-label="적요 검색"
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
-                            style={{ background: 'transparent', border: 'none', color: 'white', outline: 'none', fontSize: '0.9rem', width: '150px' }}
                         />
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '12px 24px', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>기준월</span>
+                    <div className="toolbar-box">
+                        <span className="toolbar-label">기준월</span>
                         <select value={salaryYear} onChange={e => setSalaryYear(Number(e.target.value))} style={selectStyle}>
                             {[2024, 2025, 2026, 2027, 2028].map(y => <option key={y} value={y}>{y}년</option>)}
                         </select>
@@ -370,16 +427,16 @@ export default function ExpenseManagement() {
             </div>
 
 
-            <div style={{ display: 'flex', gap: '24px', alignItems: 'stretch' }}>
+            <div className="stat-row">
                 <div className="glass-panel" style={{ flex: 1, borderTop: '4px solid #ef4444', padding: '16px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                     <span style={{ color: 'var(--text-muted)' }}>당월 지출 합계</span>
-                    <div style={{ fontSize: '2rem', fontWeight: 700, color: '#ef4444' }}>
+                    <div className="stat-value" style={{ color: '#ef4444' }}>
                         {new Intl.NumberFormat('ko-KR').format(totalExpense)} <span style={{ fontSize: '1rem' }}>원</span>
                     </div>
                 </div>
                 <div className="glass-panel" style={{ flex: 1, borderTop: '4px solid #f59e0b', padding: '16px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                     <span style={{ color: 'var(--text-muted)' }}>고정비용 합계</span>
-                    <div style={{ fontSize: '2rem', fontWeight: 700, color: '#f59e0b' }}>
+                    <div className="stat-value" style={{ color: '#f59e0b' }}>
                         {new Intl.NumberFormat('ko-KR').format(fixedExpense)} <span style={{ fontSize: '1rem' }}>원</span>
                     </div>
                 </div>
@@ -391,6 +448,29 @@ export default function ExpenseManagement() {
                 </div>
             </div>
 
+            {isMobile ? (
+                <div className="glass-panel mobile-list">
+                    {visibleTransactions.length === 0 ? (
+                        <div className="mobile-empty">조건에 맞는 지출 내역이 없습니다.</div>
+                    ) : (
+                        groupByDate(visibleTransactions).map(group => (
+                            <section key={group.date}>
+                                <h3 className="mobile-list-date">{formatDateHeading(group.date)}</h3>
+                                {group.items.map(tx => (
+                                    <button type="button" key={tx.id} className="mobile-row" onClick={() => handleEditClick(tx)}>
+                                        <span className="mobile-row-main">
+                                            <span className="mobile-row-title">{tx.store}</span>
+                                            <span className="mobile-row-amount" style={{ color: '#f87171' }}>{new Intl.NumberFormat('ko-KR').format(tx.expense)}원</span>
+                                        </span>
+                                        <span className="mobile-row-meta">{[tx.usage_category, tx.payment_method, tx.is_fixed].filter(Boolean).join(' · ')}</span>
+                                        {tx.note && <span className="mobile-row-note">{tx.note}</span>}
+                                    </button>
+                                ))}
+                            </section>
+                        ))
+                    )}
+                </div>
+            ) : (
             <div className="glass-panel" style={{ padding: '0', overflowX: 'auto', outline: 'none' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '1100px' }}>
                     <thead style={{ background: 'rgba(0,0,0,0.3)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
@@ -518,11 +598,57 @@ export default function ExpenseManagement() {
                     </tbody>
                 </table>
             </div>
+            )}
+
+            {isMobile && (
+                <>
+                    <div className="fab-spacer" />
+                    <button type="button" className="fab" onClick={() => setIsAddSheetOpen(true)} aria-label="지출 추가">
+                        <Plus size={26} />
+                    </button>
+                </>
+            )}
+
+            <BottomSheet open={isMobile && isAddSheetOpen} title="지출 추가" onClose={() => setIsAddSheetOpen(false)}>
+                <form className="form-stack" onSubmit={handleAdd}>
+                    <ExpenseFormFields
+                        form={newTx}
+                        setField={(field, value) => {
+                            setNewTx({ ...newTx, [field]: value });
+                            if (field === 'usage_category') setIsCategoryAuto(false);
+                        }}
+                        onStoreChange={handleStoreChange}
+                        onAmountChange={e => handleNumberChange(e, 'expense')}
+                        categories={categories}
+                        paymentMethods={paymentMethods}
+                    />
+                    <div className="form-actions">
+                        <button type="submit" className="btn btn-primary">추가</button>
+                    </div>
+                </form>
+            </BottomSheet>
+
+            <BottomSheet open={isMobile && editingTxId !== null} title="지출 수정" onClose={() => setEditingTxId(null)}>
+                <form className="form-stack" onSubmit={e => { e.preventDefault(); handleEditSave(editingTxId); }}>
+                    <ExpenseFormFields
+                        form={editForm}
+                        setField={(field, value) => setEditForm({ ...editForm, [field]: value })}
+                        onStoreChange={e => setEditForm({ ...editForm, store: e.target.value })}
+                        onAmountChange={e => handleEditNumberChange(e, 'expense')}
+                        categories={categories}
+                        paymentMethods={paymentMethods}
+                    />
+                    <div className="form-actions">
+                        <button type="button" className="btn btn-danger" onClick={() => handleDelete(editingTxId)}>삭제</button>
+                        <button type="submit" className="btn btn-primary">저장</button>
+                    </div>
+                </form>
+            </BottomSheet>
 
             {/* CSV 대량 업로드 모달 */}
             {
                 isCsvModalOpen && createPortal(
-                    <div style={modalOverlayStyle}>
+                    <div className="modal-overlay" style={modalOverlayStyle}>
                         <div className="glass-panel" style={modalContentStyle}>
                             <h2>카드 사용내역 엑셀/CSV 붙여넣기</h2>
                             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '16px' }}>
@@ -603,14 +729,7 @@ const selectStyle = {
 };
 
 const modalOverlayStyle = {
-    position: 'fixed',
-    top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-    backdropFilter: 'blur(4px)'
+    zIndex: 1000
 };
 
 const modalContentStyle = {
