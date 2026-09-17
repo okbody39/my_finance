@@ -1,10 +1,10 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Wallet, TrendingUp, Settings, Briefcase, CreditCard } from 'lucide-react';
+import { LayoutDashboard, Wallet, TrendingUp, Settings, Briefcase, CreditCard, LogOut } from 'lucide-react';
 import classNames from 'classnames';
 
 // 사이드바 전용 스타일, 나중에 CSS Modules로 뺄 수도 있지만 index.css 연동을 위해 인라인/클래스 혼용
-const Sidebar = () => {
+const Sidebar = ({ user, onLogout }) => {
     return (
         <aside style={{
             width: '260px',
@@ -39,6 +39,18 @@ const Sidebar = () => {
                 <div style={{ flex: 1, minHeight: '40px' }} />
                 <NavItem to="/settings" icon={<Settings size={20} />} label="시스템 설정" />
             </nav>
+
+            <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                {user && (
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', padding: '0 16px 4px' }}>
+                        {user.username} 계정으로 로그인됨
+                    </p>
+                )}
+                <button type="button" className="sidebar-logout" onClick={onLogout}>
+                    <LogOut size={20} />
+                    <span>로그아웃</span>
+                </button>
+            </div>
         </aside>
     );
 };

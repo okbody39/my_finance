@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const { requireAuth } = require('./services/authService');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -9,6 +10,15 @@ const PORT = process.env.PORT || 8080;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// 인증 없이 접근 가능한 API (로그인, 헬스체크)
+app.use('/api/auth', require('./routes/authRoutes'));
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', message: '월천 (Wolcheon) API Server is running' });
+});
+
+// 그 외 모든 /api 요청은 로그인 필요
+app.use('/api', requireAuth);
 
 // Routes
 app.use('/api/accounts', require('./routes/accountRoutes'));
@@ -22,10 +32,6 @@ app.post('/api/sync-sms', (req, res) => {
     const { syncWooriCardTransactions } = require('./services/smsSyncService');
     const result = syncWooriCardTransactions();
     res.json(result);
-});
-
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', message: '월천 (Wolcheon) API Server is running' });
 });
 
 // Serve static files from the frontend react app

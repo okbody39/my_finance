@@ -69,6 +69,20 @@ function initializeDatabase() {
       goal_operator TEXT,
       goal_value TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL UNIQUE, -- 로그인 아이디
+      password_hash TEXT NOT NULL,   -- scrypt 해시 (salt:hash, hex)
+      created_at TEXT DEFAULT (datetime('now', 'localtime'))
+    );
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      token_hash TEXT PRIMARY KEY,   -- 세션 토큰의 sha256 (원문 토큰은 쿠키에만 존재)
+      user_id INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL,   -- 만료 시각 (epoch ms)
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
   `;
 
   db.exec(initScript);
