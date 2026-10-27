@@ -165,6 +165,8 @@ router.post('/bulk-csv', (req, res) => {
 
         // 상점명 비교 키 (공백 제거 + 소문자) — 지출관리 화면의 자동 분류와 동일한 규칙
         const normalizeStore = (s) => (s || '').replace(/\s+/g, '').toLowerCase();
+        // 매월 이름이 바뀌는 상점은 포함된 명칭으로 분류 (예: 아파트관리비26년08월2802호)
+        const keywordCategories = [['아파트관리비', '생활비']];
 
         const insertMany = db.transaction((txs) => {
             // 상점별 가장 최근의 분류('기타' 제외)
@@ -185,7 +187,8 @@ router.post('/bulk-csv', (req, res) => {
                 const key = normalizeStore(tx.store);
                 let category = tx.usage_category;
                 if (!category || category === '기타') {
-                    category = categoryByStore.get(key) || '기타';
+                    const keywordMatch = keywordCategories.find(([kw]) => key.includes(kw));
+                    category = (keywordMatch && keywordMatch[1]) || categoryByStore.get(key) || '기타';
                 } else if (key) {
                     categoryByStore.set(key, category);
                 }
