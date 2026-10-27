@@ -163,10 +163,33 @@ router.post('/bulk-csv', (req, res) => {
             VALUES (?, ?, ?, 0, ?, '', ?, ?, ?, ?, 0)
         `);
 
+        // 상점명 비교 키 (공백 제거 + 소문자) — 지출관리 화면의 자동 분류와 동일한 규칙
+        const normalizeStore = (s) => (s || '').replace(/\s+/g, '').toLowerCase();
+
         const insertMany = db.transaction((txs) => {
+            // 상점별 가장 최근의 분류('기타' 제외)
+            const categoryByStore = new Map();
+            const pastTxs = db.prepare(`
+                SELECT store, usage_category FROM transactions
+                WHERE usage_category IS NOT NULL AND usage_category != '' AND usage_category != '기타'
+                ORDER BY date, id
+            `).all();
+            for (const t of pastTxs) {
+                const key = normalizeStore(t.store);
+                if (key) categoryByStore.set(key, t.usage_category);
+            }
+
             let totalExpense = 0;
             for (const tx of txs) {
                 const exp = parseInt(tx.expense, 10) || 0;
+                const key = normalizeStore(tx.store);
+                let category = tx.usage_category;
+                if (!category || category === '기타') {
+                    category = categoryByStore.get(key) || '기타';
+                } else if (key) {
+                    categoryByStore.set(key, category);
+                }
+
                 stmt.run(
                     tx.date,
                     tx.store || '',
@@ -174,7 +197,7 @@ router.post('/bulk-csv', (req, res) => {
                     exp,
                     tx.period || '실행',
                     tx.is_fixed || '변동',
-                    tx.usage_category || '기타',
+                    category,
                     tx.payment_method || ''
                 );
 

@@ -74,8 +74,20 @@ function getSessionToken(req) {
     return null;
 }
 
+// 기기(맥 동기화 앱 my-asset)용 API 키: .env의 DEVICE_API_KEY, 지출 일괄 전송에만 허용
+const DEVICE_KEY_PATHS = new Set(['POST /api/transactions/bulk-csv']);
+
+function isValidDeviceKey(req) {
+    const expected = process.env.DEVICE_API_KEY;
+    const given = req.headers['x-api-key'];
+    if (!expected || !given) return false;
+    if (!DEVICE_KEY_PATHS.has(`${req.method} ${req.originalUrl.split('?')[0]}`)) return false;
+    return crypto.timingSafeEqual(Buffer.from(sha256(String(given))), Buffer.from(sha256(expected)));
+}
+
 // /api 요청 보호 미들웨어 (로그인하지 않았으면 401)
 function requireAuth(req, res, next) {
+    if (isValidDeviceKey(req)) return next();
     const user = getSessionUser(getSessionToken(req));
     if (!user) return res.status(401).json({ error: '로그인이 필요합니다.' });
     req.user = user;
