@@ -119,3 +119,12 @@ Thumbs.db
 
 # Project-specific directories/files
 backend/db/*.db
+
+# 공통 제외 (OS, 에디터, 의존성, 비밀값, 로그, 로컬 DB)
+.idea/
+.vscode/
+*.swp
+__pycache__/
+*.pyc
+*.db-shm
+*.db-wal
